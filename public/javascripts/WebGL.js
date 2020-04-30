@@ -1,41 +1,41 @@
 // Directional lighting demo: By Frederick Li
 // Vertex shader program
-var VSHADER_SOURCE =
-    'attribute vec4 a_Position;\n' +
-    'attribute vec4 a_Color;\n' +
-    'attribute vec4 a_Normal;\n' +        // Normal
-    'uniform mat4 u_ModelMatrix;\n' +
-    'uniform mat4 u_NormalMatrix;\n' +
-    'uniform mat4 u_ViewMatrix;\n' +
-    'uniform mat4 u_ProjMatrix;\n' +
-    'uniform vec3 u_LightColor;\n' +     // Light color
-    'uniform vec3 u_LightDirection;\n' + // Light direction (in the world coordinate, normalized)
-    'varying vec4 v_Color;\n' +
-    'uniform bool u_isLighting;\n' +
-    'void main() {\n' +
-    '  gl_Position = u_ProjMatrix * u_ViewMatrix * u_ModelMatrix * a_Position;\n' +
-    '  if(u_isLighting)\n' +
-    '  {\n' +
-    '     vec3 normal = normalize((u_NormalMatrix * a_Normal).xyz);\n' +
-    '     float nDotL = max(dot(normal, u_LightDirection), 0.0);\n' +
+var VSHADER_SOURCE =`
+    attribute vec4 a_Position;
+    attribute vec4 a_Color;
+    attribute vec4 a_Normal;        // Normal
+    uniform mat4 u_ModelMatrix;
+    uniform mat4 u_NormalMatrix;
+    uniform mat4 u_ViewMatrix;
+    uniform mat4 u_ProjMatrix;
+    uniform vec3 u_LightColor;     // Light color
+    uniform vec3 u_LightDirection; // Light direction (in the world coordinate, normalized)
+    varying vec4 v_Color;
+    uniform bool u_isLighting;
+    void main() {
+      gl_Position = u_ProjMatrix * u_ViewMatrix * u_ModelMatrix * a_Position;
+      if(u_isLighting)
+      {
+         vec3 normal = normalize((u_NormalMatrix * a_Normal).xyz);
+         float nDotL = max(dot(normal, u_LightDirection), 0.0);
     // Calculate the color due to diffuse reflection
-    '     vec3 diffuse = u_LightColor * a_Color.rgb * nDotL;\n' +
-    '     v_Color = vec4(diffuse, a_Color.a);\n' +  '  }\n' +
-    '  else\n' +
-    '  {\n' +
-    '     v_Color = a_Color;\n' +
-    '  }\n' +
-    '}\n';
+         vec3 diffuse = u_LightColor * a_Color.rgb * nDotL;
+         v_Color = vec4(diffuse, a_Color.a);    }
+      else
+      {
+         v_Color = a_Color;
+      }
+    }`;
 
 // Fragment shader program
-var FSHADER_SOURCE =
-    '#ifdef GL_ES\n' +
-    'precision mediump float;\n' +
-    '#endif\n' +
-    'varying vec4 v_Color;\n' +
-    'void main() {\n' +
-    '  gl_FragColor = v_Color;\n' +
-    '}\n';
+var FSHADER_SOURCE =`
+    #ifdef GL_ES
+    precision mediump float;
+    #endif
+    varying vec4 v_Color;
+    void main() {
+      gl_FragColor = v_Color;
+    }`;
 
 var modelMatrix = new Matrix4(); // The model matrix
 var viewMatrix = new Matrix4();  // The view matrix
@@ -47,10 +47,18 @@ var g_xAngle = 0.0;    // The rotation x angle (degrees)
 var g_yAngle = 0.0;    // The rotation y angle (degrees)
 
 
-
+let Xinputslider;
+let Yinputslider;
+let Zinputslider;
 function main() {
     // Retrieve <canvas> element
     var canvas = document.getElementById('webgl');
+    Xinputslider = document.getElementById("inputSliderX");
+    Xinputslider.oninput = ()=>{document.getElementById("xout").innerHTML = Xinputslider.value/10; draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting)};
+    Yinputslider = document.getElementById("inputSliderY");
+    Yinputslider.oninput = ()=>{document.getElementById("yout").innerHTML = Yinputslider.value/10; draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting)};
+    Zinputslider = document.getElementById("inputSliderZ");
+    Zinputslider.oninput = ()=>{document.getElementById("zout").innerHTML = Zinputslider.value/10; draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting)};
 
     // Get the rendering context for WebGL
     var gl = getWebGLContext(canvas);
@@ -114,16 +122,16 @@ function main() {
 
 function keydown(ev, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     switch (ev.keyCode) {
-        case 40: // Up arrow key -> the positive rotation of arm1 around the y-axis
+        case 87: // W key -> the positive rotation of arm1 around the y-axis
             g_xAngle = (g_xAngle + ANGLE_STEP) % 360;
             break;
-        case 38: // Down arrow key -> the negative rotation of arm1 around the y-axis
+        case 83: // S key -> the negative rotation of arm1 around the y-axis
             g_xAngle = (g_xAngle - ANGLE_STEP) % 360;
             break;
-        case 39: // Right arrow key -> the positive rotation of arm1 around the y-axis
+        case 68: // Right arrow key -> the positive rotation of arm1 around the y-axis
             g_yAngle = (g_yAngle + ANGLE_STEP) % 360;
             break;
-        case 37: // Left arrow key -> the negative rotation of arm1 around the y-axis
+        case 65: // Left arrow key -> the negative rotation of arm1 around the y-axis
             g_yAngle = (g_yAngle - ANGLE_STEP) % 360;
             break;
         default: return; // Skip drawing at no effective action
@@ -323,70 +331,55 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     modelMatrix.rotate(g_yAngle, 0, 1, 0); // Rotate along y axis
     modelMatrix.rotate(g_xAngle, 1, 0, 0); // Rotate along x axis
 
-    let chair1 = new Chair(gl, u_ModelMatrix, u_NormalMatrix, n, modelMatrix);
-    chair1.draw();
-    let chair2 = new Chair(gl, u_ModelMatrix, u_NormalMatrix, n, modelMatrix);
-    chair2.translate(2,0,0);
-    chair2.draw()
+
+    let chair1Mat = new Matrix4(modelMatrix);
+    drawchair(gl, u_ModelMatrix, u_NormalMatrix, n, chair1Mat);
+
+    let chair2Mat = new Matrix4(modelMatrix);
+    chair2Mat.translate(4,0,0);
+    drawchair(gl, u_ModelMatrix, u_NormalMatrix, n, chair2Mat);
 
 }
 
-class Box {
+function drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, modMatrix) {
 
-    constructor(gl, u_ModelMatrix, u_NormalMatrix, n, ModelMatrix) {
-        this.gl = gl;
-        this.u_ModelMatrix = u_ModelMatrix;
-        this.u_NormalMatrix = u_NormalMatrix;
-        this.n = n;
-        this.ModelMatrix = new Matrix4(ModelMatrix);
-    }
-    draw() {
-        let currModelMatrix = this.ModelMatrix;
+    // Pass the model matrix to the uniform variable
+    gl.uniformMatrix4fv(u_ModelMatrix, false, modMatrix.elements);
 
-        // Pass the model matrix to the uniform variable
-        this.gl.uniformMatrix4fv(this.u_ModelMatrix, false, currModelMatrix.elements);
+    // Calculate the normal transformation matrix and pass it to u_NormalMatrix
+    g_normalMatrix.setInverseOf(modMatrix);
+    g_normalMatrix.transpose();
+    gl.uniformMatrix4fv(u_NormalMatrix, false, g_normalMatrix.elements);
 
-        // Calculate the normal transformation matrix and pass it to u_NormalMatrix
-        g_normalMatrix.setInverseOf(currModelMatrix);
-        g_normalMatrix.transpose();
-        this.gl.uniformMatrix4fv(this.u_NormalMatrix, false, g_normalMatrix.elements);
-
-        // Draw the cube
-        this.gl.drawElements(this.gl.TRIANGLES, this.n, this.gl.UNSIGNED_BYTE, 0);
-
-    }
+    // Draw the cube
+    gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
+    
 }
 
-class Chair {
-    constructor(gl, u_ModelMatrix, u_NormalMatrix, n, ModelMatrix) {
-        this.gl = gl;
-        this.u_ModelMatrix = u_ModelMatrix;
-        this.u_NormalMatrix = u_NormalMatrix;
-        this.n = n;
-        this.ModelMatrix = new Matrix4(ModelMatrix);
+function drawchair(gl, u_ModelMatrix, u_NormalMatrix, n, modMatrix) {
+    //Draw Seat
+    let seatmatrix = new Matrix4(modMatrix).scale(2.0, 0.5, 2.6);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, seatmatrix);
 
-        this.seatbox = new Box(gl, u_ModelMatrix, u_NormalMatrix, n, ModelMatrix);
-        this.seatbox.ModelMatrix.scale(2.0, 0.5, 2.0);
+    //Draw Back
+    let backmatrix = new Matrix4(modMatrix).translate(0, 1.25, -1.05).scale(2.0, 2.0, 0.5);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, backmatrix);
 
-        this.backbox = new Box(gl, u_ModelMatrix, u_NormalMatrix, n, ModelMatrix);
-        this.backbox.ModelMatrix.translate(0, 1.25, -0.75);  // Translation
-        this.backbox.ModelMatrix.scale(2.0, 2.0, 0.5); // Scale
+    //Draw Legs
+    let legMat = new Matrix4(modMatrix).scale(0.4,2,0.4);
 
-        this.legs = [];
-        this.legs[0] = new Box(gl, u_ModelMatrix, u_NormalMatrix, n, ModelMatrix);
-        this.legs[1] = new Box(gl, u_ModelMatrix, u_NormalMatrix, n, ModelMatrix);
-        this.legs[2] = new Box(gl, u_ModelMatrix, u_NormalMatrix, n, ModelMatrix);
-        this.legs[3] = new Box(gl, u_ModelMatrix, u_NormalMatrix, n, ModelMatrix);
+    let legAMat = new Matrix4(legMat);
+    let legBMat = new Matrix4(legMat);
+    let legCMat = new Matrix4(legMat);
+    let legDMat = new Matrix4(legMat);
 
-        
-    }
-    draw(){
-        this.seatbox.draw();
-        this.backbox.draw();
-    }
-    translate(x,y,z){
-        this.seatbox.ModelMatrix.translate(x,y,z);
-        this.backbox.ModelMatrix.translate(x,y,z);
+    legAMat.translate(-2, -0.5, -2.75);
+    legBMat.translate(2, -0.5, -2.75);
+    legCMat.translate(-2, -0.5, 2.75);
+    legDMat.translate(2, -0.5, 2.75);
 
-    }
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, legAMat);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, legBMat);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, legCMat);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, legDMat);
 }
