@@ -46,6 +46,8 @@ var ANGLE_STEP = 3.0;  // The increments of rotation angle (degrees)
 var g_xAngle = 0.0;    // The rotation x angle (degrees)
 var g_yAngle = 0.0;    // The rotation y angle (degrees)
 
+
+
 function main() {
     // Retrieve <canvas> element
     var canvas = document.getElementById('webgl');
@@ -321,33 +323,70 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     modelMatrix.rotate(g_yAngle, 0, 1, 0); // Rotate along y axis
     modelMatrix.rotate(g_xAngle, 1, 0, 0); // Rotate along x axis
 
-    // Model the chair seat
-    pushMatrix(modelMatrix);
-    modelMatrix.scale(2.0, 0.5, 2.0); // Scale
-    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n);
-    modelMatrix = popMatrix();
+    let chair1 = new Chair(gl, u_ModelMatrix, u_NormalMatrix, n, modelMatrix);
+    chair1.draw();
+    let chair2 = new Chair(gl, u_ModelMatrix, u_NormalMatrix, n, modelMatrix);
+    chair2.translate(2,0,0);
+    chair2.draw()
 
-    // Model the chair back
-    pushMatrix(modelMatrix);
-    modelMatrix.translate(0, 1.25, -0.75);  // Translation
-    modelMatrix.scale(2.0, 2.0, 0.5); // Scale
-    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n);
-    modelMatrix = popMatrix();
 }
 
-function drawbox(gl, u_ModelMatrix, u_NormalMatrix, n) {
-    pushMatrix(modelMatrix);
+class Box {
 
-    // Pass the model matrix to the uniform variable
-    gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements);
+    constructor(gl, u_ModelMatrix, u_NormalMatrix, n, ModelMatrix) {
+        this.gl = gl;
+        this.u_ModelMatrix = u_ModelMatrix;
+        this.u_NormalMatrix = u_NormalMatrix;
+        this.n = n;
+        this.ModelMatrix = new Matrix4(ModelMatrix);
+    }
+    draw() {
+        let currModelMatrix = this.ModelMatrix;
 
-    // Calculate the normal transformation matrix and pass it to u_NormalMatrix
-    g_normalMatrix.setInverseOf(modelMatrix);
-    g_normalMatrix.transpose();
-    gl.uniformMatrix4fv(u_NormalMatrix, false, g_normalMatrix.elements);
+        // Pass the model matrix to the uniform variable
+        this.gl.uniformMatrix4fv(this.u_ModelMatrix, false, currModelMatrix.elements);
 
-    // Draw the cube
-    gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
+        // Calculate the normal transformation matrix and pass it to u_NormalMatrix
+        g_normalMatrix.setInverseOf(currModelMatrix);
+        g_normalMatrix.transpose();
+        this.gl.uniformMatrix4fv(this.u_NormalMatrix, false, g_normalMatrix.elements);
 
-    modelMatrix = popMatrix();
+        // Draw the cube
+        this.gl.drawElements(this.gl.TRIANGLES, this.n, this.gl.UNSIGNED_BYTE, 0);
+
+    }
+}
+
+class Chair {
+    constructor(gl, u_ModelMatrix, u_NormalMatrix, n, ModelMatrix) {
+        this.gl = gl;
+        this.u_ModelMatrix = u_ModelMatrix;
+        this.u_NormalMatrix = u_NormalMatrix;
+        this.n = n;
+        this.ModelMatrix = new Matrix4(ModelMatrix);
+
+        this.seatbox = new Box(gl, u_ModelMatrix, u_NormalMatrix, n, ModelMatrix);
+        this.seatbox.ModelMatrix.scale(2.0, 0.5, 2.0);
+
+        this.backbox = new Box(gl, u_ModelMatrix, u_NormalMatrix, n, ModelMatrix);
+        this.backbox.ModelMatrix.translate(0, 1.25, -0.75);  // Translation
+        this.backbox.ModelMatrix.scale(2.0, 2.0, 0.5); // Scale
+
+        this.legs = [];
+        this.legs[0] = new Box(gl, u_ModelMatrix, u_NormalMatrix, n, ModelMatrix);
+        this.legs[1] = new Box(gl, u_ModelMatrix, u_NormalMatrix, n, ModelMatrix);
+        this.legs[2] = new Box(gl, u_ModelMatrix, u_NormalMatrix, n, ModelMatrix);
+        this.legs[3] = new Box(gl, u_ModelMatrix, u_NormalMatrix, n, ModelMatrix);
+
+        
+    }
+    draw(){
+        this.seatbox.draw();
+        this.backbox.draw();
+    }
+    translate(x,y,z){
+        this.seatbox.ModelMatrix.translate(x,y,z);
+        this.backbox.ModelMatrix.translate(x,y,z);
+
+    }
 }
