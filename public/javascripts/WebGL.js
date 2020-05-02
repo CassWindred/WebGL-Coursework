@@ -1,41 +1,11 @@
 // Directional lighting demo: By Frederick Li
 // Vertex shader program
-var VSHADER_SOURCE =`
-    attribute vec4 a_Position;
-    attribute vec4 a_Color;
-    attribute vec4 a_Normal;        // Normal
-    uniform mat4 u_ModelMatrix;
-    uniform mat4 u_NormalMatrix;
-    uniform mat4 u_ViewMatrix;
-    uniform mat4 u_ProjMatrix;
-    uniform vec3 u_LightColor;     // Light color
-    uniform vec3 u_LightDirection; // Light direction (in the world coordinate, normalized)
-    varying vec4 v_Color;
-    uniform bool u_isLighting;
-    void main() {
-      gl_Position = u_ProjMatrix * u_ViewMatrix * u_ModelMatrix * a_Position;
-      if(u_isLighting)
-      {
-         vec3 normal = normalize((u_NormalMatrix * a_Normal).xyz);
-         float nDotL = max(dot(normal, u_LightDirection), 0.0);
-    // Calculate the color due to diffuse reflection
-         vec3 diffuse = u_LightColor * a_Color.rgb * nDotL;
-         v_Color = vec4(diffuse, a_Color.a);    }
-      else
-      {
-         v_Color = a_Color;
-      }
-    }`;
+var VSHADER_SOURCE;
 
 // Fragment shader program
-var FSHADER_SOURCE =`
-    #ifdef GL_ES
-    precision mediump float;
-    #endif
-    varying vec4 v_Color;
-    void main() {
-      gl_FragColor = v_Color;
-    }`;
+var FSHADER_SOURCE;
+
+const baseurl = window.location.href;
 
 var modelMatrix = new Matrix4(); // The model matrix
 var viewMatrix = new Matrix4();  // The view matrix
@@ -45,6 +15,9 @@ var g_normalMatrix = new Matrix4();  // Coordinate transformation matrix for nor
 var ANGLE_STEP = 3.0;  // The increments of rotation angle (degrees)
 var g_xAngle = 0.0;    // The rotation x angle (degrees)
 var g_yAngle = 0.0;    // The rotation y angle (degrees)
+var ZOOM_STEP = 0.5;
+var g_zoom = 0.0;
+
 
 
 let Xinputslider;
@@ -61,10 +34,30 @@ function main() {
     Zinputslider.oninput = ()=>{document.getElementById("zout").innerHTML = Zinputslider.value/10; draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting)};
 
     // Get the rendering context for WebGL
+    console.log(baseurl);
     var gl = getWebGLContext(canvas);
     if (!gl) {
         console.log('Failed to get the rendering context for WebGL');
         return;
+    }
+
+    //Get fragment shader from server
+    let request = new XMLHttpRequest();
+    request.open("GET", baseurl+ "/shaders/vertex.shader", false);
+    request.send(null);
+    if (request.status === 200) {
+        VSHADER_SOURCE = request.responseText;
+    } else {
+        console.log("Failed to get vertex.shader from server")
+    }
+    //Get vertex shader from server
+    request = new XMLHttpRequest();
+    request.open("GET", baseurl+"/shaders/fragment.shader", false);
+    request.send(null);
+    if (request.status === 200) {
+        FSHADER_SOURCE = request.responseText;
+    } else {
+        console.log("Failed to get fragment.shader from server")
     }
 
     // Initialize shaders
@@ -106,7 +99,7 @@ function main() {
     gl.uniform3fv(u_LightDirection, lightDirection.elements);
 
     // Calculate the view matrix and the projection matrix
-    viewMatrix.setLookAt(0, 0, 15, 0, 0, -100, 0, 1, 0);
+    viewMatrix.setLookAt(0, 25, 40, 0, 0, 0, 0, 1, 0);
     projMatrix.setPerspective(30, canvas.width/canvas.height, 1, 100);
     // Pass the model, view, and projection matrix to the uniform variable respectively
     gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements);
@@ -134,6 +127,12 @@ function keydown(ev, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
         case 65: // Left arrow key -> the negative rotation of arm1 around the y-axis
             g_yAngle = (g_yAngle - ANGLE_STEP) % 360;
             break;
+        case 16: //Shift
+            g_zoom = (g_zoom + ZOOM_STEP);
+            break;
+        case 17: //Ctrl
+            g_zoom = (g_zoom - ZOOM_STEP);
+            break;
         default: return; // Skip drawing at no effective action
     }
 
@@ -142,7 +141,7 @@ function keydown(ev, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
 }
 
 
-function initVertexBuffers(gl) {
+function initCubeVertexBuffers(gl) {
     // Create a cube
     //    v6----- v5
     //   /|      /|
@@ -294,6 +293,8 @@ function popMatrix() { // Retrieve the matrix from the array
     return g_matrixStack.pop();
 }
 
+
+
 function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
 
     // Clear color and depth buffer
@@ -320,23 +321,24 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     gl.uniform1i(u_isLighting, true); // Will apply lighting
 
     // Set the vertex coordinates and color (for the cube)
-    var n = initVertexBuffers(gl);
+    var n = initCubeVertexBuffers(gl);
     if (n < 0) {
         console.log('Failed to set the vertex information');
         return;
     }
 
     // Rotate, and then translate
-    modelMatrix.setTranslate(0, 0, 0);  // Translation (No translation is supported here)
+    modelMatrix.setTranslate(0, 0, g_zoom);  // Translation (No translation is supported here)
     modelMatrix.rotate(g_yAngle, 0, 1, 0); // Rotate along y axis
     modelMatrix.rotate(g_xAngle, 1, 0, 0); // Rotate along x axis
 
 
     let chair1Mat = new Matrix4(modelMatrix);
+    chair1Mat.translate(0,-3,3);
     drawchair(gl, u_ModelMatrix, u_NormalMatrix, n, chair1Mat);
 
     let chair2Mat = new Matrix4(modelMatrix);
-    chair2Mat.translate(4,0,0);
+    chair2Mat.translate(4,-3,3);
     drawchair(gl, u_ModelMatrix, u_NormalMatrix, n, chair2Mat);
 
 }
