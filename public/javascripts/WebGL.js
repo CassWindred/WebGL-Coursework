@@ -1,9 +1,21 @@
-// Directional lighting demo: By Frederick Li
+
 // Vertex shader program
 var VSHADER_SOURCE;
-
 // Fragment shader program
 var FSHADER_SOURCE;
+
+var u_PointLightPosition;
+var u_PointLightColor;
+var u_isDirectionalLighting;
+var u_isPointLighting;
+
+var u_LightColor ;
+var u_ModelMatrix;
+var u_ViewMatrix ;
+var u_NormalMatrix;
+var u_isLighting;
+
+var gl;
 
 const baseurl = window.location.href;
 
@@ -18,11 +30,29 @@ var g_yAngle = 0.0;    // The rotation y angle (degrees)
 var ZOOM_STEP = 0.5;
 var g_zoom = 0.0;
 
-
-
 let Xinputslider;
 let Yinputslider;
 let Zinputslider;
+
+
+
+
+const pointLightPosition = new Vector3([0,4,0]);
+const pointLightColor = new Vector3([0.1, 0.5, 0.9]);
+
+var isPointLighting = 1;
+var isDirectionalLighting = 1;
+
+function togglePointLighting() {
+    isPointLighting = !isPointLighting;
+    gl.uniform1i(u_isPointLighting, isPointLighting);
+
+}
+function toggleDirectionalLighting() {
+    isDirectionalLighting = !isDirectionalLighting;
+    gl.uniform1i(u_isDirectionalLighting, isDirectionalLighting);
+}
+
 function main() {
     // Retrieve <canvas> element
     var canvas = document.getElementById('webgl');
@@ -35,7 +65,7 @@ function main() {
 
     // Get the rendering context for WebGL
     console.log(baseurl);
-    var gl = getWebGLContext(canvas);
+    gl = getWebGLContext(canvas);
     if (!gl) {
         console.log('Failed to get the rendering context for WebGL');
         return;
@@ -46,6 +76,7 @@ function main() {
     request.open("GET", baseurl+ "/shaders/vertex.shader", false);
     request.send(null);
     if (request.status === 200) {
+
         VSHADER_SOURCE = request.responseText;
     } else {
         console.log("Failed to get vertex.shader from server")
@@ -67,22 +98,26 @@ function main() {
     }
 
     // Set clear color and enable hidden surface removal
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.clearColor(0.0, 0.0, 0.0, 0.5);
     gl.enable(gl.DEPTH_TEST);
 
     // Clear color and depth buffer
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     // Get the storage locations of uniform attributes
+    var u_LightColor = gl.getUniformLocation(gl.program, "u_LightColor");
     var u_ModelMatrix = gl.getUniformLocation(gl.program, 'u_ModelMatrix');
     var u_ViewMatrix = gl.getUniformLocation(gl.program, 'u_ViewMatrix');
     var u_NormalMatrix = gl.getUniformLocation(gl.program, 'u_NormalMatrix');
     var u_ProjMatrix = gl.getUniformLocation(gl.program, 'u_ProjMatrix');
-    var u_LightColor = gl.getUniformLocation(gl.program, 'u_LightColor');
     var u_LightDirection = gl.getUniformLocation(gl.program, 'u_LightDirection');
+    var u_PointLightColor = gl.getUniformLocation(gl.program, 'u_PointLightColor');
+    var u_PointLightPosition = gl.getUniformLocation(gl.program, 'u_PointLightPosition');
 
     // Trigger using lighting or not
     var u_isLighting = gl.getUniformLocation(gl.program, 'u_isLighting');
+    u_isPointLighting = gl.getUniformLocation(gl.program, "u_isPointLighting");
+    u_isDirectionalLighting = gl.getUniformLocation(gl.program, "u_isDirectionalLighting");
 
     if (!u_ModelMatrix || !u_ViewMatrix || !u_NormalMatrix ||
         !u_ProjMatrix || !u_LightColor || !u_LightDirection ||
@@ -90,6 +125,9 @@ function main() {
         console.log('Failed to Get the storage locations of u_ModelMatrix, u_ViewMatrix, and/or u_ProjMatrix');
         return;
     }
+    gl.uniform1i(u_isDirectionalLighting, isDirectionalLighting);
+    gl.uniform1i(u_isPointLighting, isPointLighting);
+
 
     // Set the light color (white)
     gl.uniform3f(u_LightColor, 1.0, 1.0, 1.0);
@@ -98,6 +136,10 @@ function main() {
     lightDirection.normalize();     // Normalize
     gl.uniform3fv(u_LightDirection, lightDirection.elements);
 
+    //Set the point light color
+    gl.uniform3fv(u_PointLightColor, pointLightColor.elements);
+    //Set the point light position
+    gl.uniform3f(u_PointLightPosition, pointLightPosition.x, pointLightPosition.y, pointLightPosition.z);
     // Calculate the view matrix and the projection matrix
     viewMatrix.setLookAt(0, 25, 40, 0, 0, 0, 0, 1, 0);
     projMatrix.setPerspective(30, canvas.width/canvas.height, 1, 100);
@@ -108,6 +150,14 @@ function main() {
 
     document.onkeydown = function(ev){
         keydown(ev, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
+    };
+    document.getElementById("toggleDirLight").onclick = () => {
+        toggleDirectionalLighting();
+        draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
+    };
+    document.getElementById("togglePointLight").onclick = () => {
+        togglePointLighting();
+        draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
     };
 
     draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
