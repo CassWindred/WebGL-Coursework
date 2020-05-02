@@ -3,6 +3,7 @@ precision mediump float;
 #endif
 uniform bool u_isDirectionalLighting;
 uniform bool u_isPointLighting;
+uniform bool u_isLighting;
 uniform vec3 u_PointLightColor;
 uniform vec3 u_PointLightPosition;
 uniform vec3 u_LightColor;// Light color
@@ -20,7 +21,8 @@ void main() {
     vec3 pointLightDirection = (normalize(u_PointLightPosition - v_Position));
     nDotL = max(dot(pointLightDirection, normal), 0.0);
     vec3 pointDiffuse = u_PointLightColor.rgb * v_Color.rgb * nDotL;
-    if (!u_isDirectionalLighting){ directionalDiffuse = vec3(0, 0, 0); }
-    if (!u_isPointLighting){pointDiffuse = vec3(0, 1, 0); }
+    if (!u_isDirectionalLighting){ directionalDiffuse = vec3(0,0,0); }
+    if (!u_isPointLighting){pointDiffuse = vec3(0,0,0); }
     gl_FragColor = vec4(directionalDiffuse + pointDiffuse, v_Color.a);
+    //gl_FragColor = vec4(u_PointLightPosition, 1.0);
 }
