@@ -60,8 +60,10 @@ function toggleLighting() {
 }
 
 function updatePointLightPosition(newPosition) {
+
     pointLightPosition = newPosition;
-    gl.uniform3fv(u_PointLightPosition, pointLightPosition)
+    console.log(pointLightPosition);
+    gl.uniform3fv(u_PointLightPosition, pointLightPosition.elements)
 }
 
 function main() {
@@ -357,7 +359,11 @@ function popMatrix() { // Retrieve the matrix from the array
 
 
 function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
-    //updatePointLightPosition(Vector3(Xinputslider.value, Yinputslider.value, Zinputslider.value));
+    let sliderX = parseInt(Xinputslider.value)/10;
+    let sliderY = parseInt(Yinputslider.value)/10;
+    let sliderZ = parseInt(Zinputslider.value)/10;
+    let sliderVector = new Vector3([sliderX, sliderY, sliderZ]);
+    updatePointLightPosition(sliderVector);
     // Clear color and depth buffer
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
