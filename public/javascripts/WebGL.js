@@ -50,6 +50,9 @@ let isPointLighting = 1;
 let isDirectionalLighting = 1;
 let isLighting = 1;
 
+let lightBulbRotation = 0;
+let lightBulbRotationStep = 0.02;
+
 function togglePointLighting() {
     isPointLighting = !isPointLighting;
     gl.uniform1i(u_isPointLighting, isPointLighting);
@@ -80,28 +83,37 @@ const Camera = {
     u_ViewMatrix: null,
     _position: new Vector3([0, 25, 40]),
     _lookAt: new Vector3([0, 0, 0]),
-    updateViewMatrix: () => {
+    resetViewMatrix: () => {
         let posElements = this._position.elements;
         let lookElements = this._lookAt.elements;
       u_ViewMatrix.setLookAt(posElements[0],posElements[1],posElements[2],
       lookElements[0],lookElements[1],lookElements[2], 0, 1, 0);
-        gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements);
+        gl.uniformMatrix4fv(u_ViewMatrix, false, this.viewMatrix.elements);
     },
     set position(newPosition) {
         this._position = newPosition;
-        this.updateViewMatrix();
+        this.resetViewMatrix();
     },
     get position() {
        return this._position
     },
     move: (moveVector) => {
-        this._position = this._position + moveVector;
-        this.updateViewMatrix();
+        vecElements = moveVector.elements;
+        this.viewMatrix = viewMatrix.translate(vecElements[0], vecElements[1], vecElements[2]);
+        gl.uniformMatrix4fv(u_ViewMatrix, false, this.viewMatrix.elements);
+
     },
     init: () => {
         this.viewMatrix = viewMatrix;
         this.u_ViewMatrix = u_ViewMatrix;
     }
+};
+
+let JSONObjects = {"sphere.json": {},
+"lightbulb.json": {}};
+
+Number.prototype.map = function (in_min, in_max, out_min, out_max) { //A function to map one range to another
+    return (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 };
 
 function main() {
@@ -185,8 +197,10 @@ function main() {
 
     // Tell the browser to load an image
     // Register the event handler to be called on loading an image
-    woodTexture.image.onload = function(){ loadTexture(woodTexture, u_Sampler, u_UseTextures); };
+    woodTexture.image.onload = function(){ loadTexture(woodTexture, u_UseTextures); };
     woodTexture.image.src = '../img/wood.png';
+
+    loadJSONObjects();
 
     document.onkeydown = function(ev){
         keydown(ev, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
@@ -208,7 +222,7 @@ function main() {
     tick();
 }
 
-function loadTexture(texture, u_Sampler) {
+function loadTexture(texture) {
     console.log("Loading Texture");
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); // Flip the image's y axis
 
@@ -289,6 +303,24 @@ function loadShaders() {
     }
 }
 
+function loadJSONObjects() {
+    for (let filename in JSONObjects) {
+
+        let fileText;
+        //Get file from server
+        request = new XMLHttpRequest();
+        request.open("GET", baseurl + "/obj/" + filename, false);
+        request.send(null);
+        if (request.status === 200) {
+            fileText = request.responseText;
+        } else {
+            console.log("Failed to get " + filename + " from server");
+            return false;
+        }
+        JSONObjects[filename] = (JSON.parse(fileText))
+    }
+}
+
 function keydown(ev, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     switch (ev.keyCode) {
         case 87: // W key -> the positive rotation of arm1 around the y-axis
@@ -313,6 +345,40 @@ function keydown(ev, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     }
 }
 
+function initMeshVertexBuffers(mesh) {
+    function flatten(arr) { //Flattens arrays, used to flatten the faces array
+        return arr.reduce(function (flat, toFlatten) {
+            return flat.concat(Array.isArray(toFlatten) ? flatten(toFlatten) : toFlatten);
+        }, []);
+    }
+    let vertices = new Float32Array(mesh.vertices);
+    let normals = new Float32Array(mesh.normals);
+    let texCoords = new Float32Array(mesh.texturecoords[0]);
+    let indices = new Uint8Array(flatten(mesh.faces));
+    let colors = [];
+    for (let i = 0; i < vertices.length/3; i++) {
+        colors = colors.concat([0, 0, 1])
+    }
+    colors = new Float32Array(colors);
+
+    // Write the vertex property to buffers (coordinates, colors and normals)
+    if (!initArrayBuffer(gl, 'a_Position', vertices, 3, gl.FLOAT)) return -1;
+    if (!initArrayBuffer(gl, 'a_Color', colors, 3, gl.FLOAT)) return -1;
+    if (!initArrayBuffer(gl, 'a_Normal', normals, 3, gl.FLOAT)) return -1;
+    if (!initArrayBuffer(gl, 'a_TexCoords', texCoords, 2, gl.FLOAT)) return -1;
+
+    // Write the indices to the buffer object
+    let indexBuffer = gl.createBuffer();
+    if (!indexBuffer) {
+        console.log('Failed to create the buffer object');
+        return false;
+    }
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+
+    return indices.length;
+}
 
 function initCubeVertexBuffers(gl) {
     // Create a cube
@@ -468,16 +534,6 @@ function initAxesVertexBuffers(gl) {
     return n;
 }
 
-let g_matrixStack = []; // Array for storing a matrix
-function pushMatrix(m) { // Store the specified matrix to the array
-    let m2 = new Matrix4(m);
-    g_matrixStack.push(m2);
-}
-
-function popMatrix() { // Retrieve the matrix from the array
-    return g_matrixStack.pop();
-}
-
 
 function draw(gl, u_ModelMatrix, u_NormalMatrix, elapsedtime) {
     let sliderX = parseInt(Xinputslider.value)/10;
@@ -489,7 +545,7 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, elapsedtime) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     gl.uniform1i(u_isLighting, false); // Will not apply lighting
-    gl.uniform1i(u_UseTextures, true);
+    gl.uniform1i(u_UseTextures, false);
 
     // Set the vertex coordinates and color (for the x, y axes)
 
@@ -521,7 +577,7 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, elapsedtime) {
     modelMatrix.rotate(g_yAngle, 0, 1, 0); // Rotate along y axis
     modelMatrix.rotate(g_xAngle, 1, 0, 0); // Rotate along x axis
 
-
+    //Draw Cube Mesh Objects
     let chair1Mat = new Matrix4(modelMatrix);
     chair1Mat.translate(0,-3,3);
     drawchair(gl, u_ModelMatrix, u_NormalMatrix, n, chair1Mat);
@@ -529,6 +585,22 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, elapsedtime) {
     let chair2Mat = new Matrix4(modelMatrix);
     chair2Mat.translate(4,-3,3);
     drawchair(gl, u_ModelMatrix, u_NormalMatrix, n, chair2Mat);
+
+    // Draw JSON Mesh objects
+    //let sphereMat = new Matrix4(modelMatrix);
+    //drawsphere(u_ModelMatrix, u_NormalMatrix, sphereMat);
+
+    let lightbulbMat = new Matrix4(modelMatrix);
+
+    lightbulbMat.scale(0.3,0.3, 0.3);
+    lightBulbRotation += lightBulbRotationStep;
+    lightBulbRotation = lightBulbRotation%360;
+    let rotationValue = Math.sin(lightBulbRotation).map(-1, 1, -30, 30);
+    lightbulbMat.translate(1,30,1);
+    lightbulbMat.rotate(rotationValue, 1, 0, 0);
+
+
+    drawlightbulb(u_ModelMatrix, u_NormalMatrix, lightbulbMat)
 
 }
 
@@ -573,4 +645,34 @@ function drawchair(gl, u_ModelMatrix, u_NormalMatrix, n, modMatrix) {
     drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, legBMat);
     drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, legCMat);
     drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, legDMat);
+}
+
+function drawsphere(u_ModelMatrix, u_NormalMatrix, modMatrix) {
+    JSONObjects["sphere.json"].meshes.forEach((mesh, index) => {
+    let n = initMeshVertexBuffers(mesh);
+    // Pass the model matrix to the uniform letiable
+    gl.uniformMatrix4fv(u_ModelMatrix, false, modMatrix.elements);
+
+    // Calculate the normal transformation matrix and pass it to u_NormalMatrix
+    g_normalMatrix.setInverseOf(modMatrix);
+    g_normalMatrix.transpose();
+    gl.uniformMatrix4fv(u_NormalMatrix, false, g_normalMatrix.elements);
+
+    // Draw the mesh
+    gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);})
+}
+
+function drawlightbulb(u_ModelMatrix, u_NormalMatrix, modMatrix) {
+    JSONObjects["lightbulb.json"].meshes.forEach((mesh, index) => {
+        let n = initMeshVertexBuffers(mesh);
+        // Pass the model matrix to the uniform letiable
+        gl.uniformMatrix4fv(u_ModelMatrix, false, modMatrix.elements);
+
+        // Calculate the normal transformation matrix and pass it to u_NormalMatrix
+        g_normalMatrix.setInverseOf(modMatrix);
+        g_normalMatrix.transpose();
+        gl.uniformMatrix4fv(u_NormalMatrix, false, g_normalMatrix.elements);
+
+        // Draw the mesh
+        gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);})
 }

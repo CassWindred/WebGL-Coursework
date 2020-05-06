@@ -23,8 +23,9 @@ varying vec2 v_TexCoords;
 void main() {
     vec4 useColor;
     float testmod;
+    vec4 texture = texture2D(u_Sampler, v_TexCoords);
     if (u_UseTextures) {
-        useColor = texture2D(u_Sampler, v_TexCoords);
+        useColor = texture;
         //testmod = 1000.0;
     } else {
         useColor = v_Color;
