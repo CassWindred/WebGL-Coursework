@@ -22,10 +22,13 @@ varying vec2 v_TexCoords;
 
 void main() {
     vec4 useColor;
+    float testmod;
     if (u_UseTextures) {
         useColor = texture2D(u_Sampler, v_TexCoords);
+        //testmod = 1000.0;
     } else {
         useColor = v_Color;
+        //testmod=1.0;
     }
     if (u_isLighting) {
     vec3 normal = normalize(v_Normal); //Get the normal

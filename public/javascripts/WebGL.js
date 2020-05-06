@@ -186,7 +186,7 @@ function main() {
     // Tell the browser to load an image
     // Register the event handler to be called on loading an image
     woodTexture.image.onload = function(){ loadTexture(woodTexture, u_Sampler, u_UseTextures); };
-    woodTexture.image.src = '../img/wood.jpg';
+    woodTexture.image.src = '../img/wood.png';
 
     document.onkeydown = function(ev){
         keydown(ev, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
@@ -202,13 +202,14 @@ function main() {
         let currTime = Date.now();
         let elapsed = currTime - prevTime; //Provides the time elapsed, in milliseconds
         prevTime = currTime;
-        draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, elapsed);
+        draw(gl, u_ModelMatrix, u_NormalMatrix, elapsed);
         requestAnimationFrame(tick)
     }
     tick();
 }
 
-function loadTexture(texture, u_Sampler, u_UseTextures) {
+function loadTexture(texture, u_Sampler) {
+    console.log("Loading Texture");
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); // Flip the image's y axis
 
     // Enable texture unit0
@@ -218,16 +219,12 @@ function loadTexture(texture, u_Sampler, u_UseTextures) {
     gl.bindTexture(gl.TEXTURE_2D, texture);
 
     // Set the texture image
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, texture.image);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     // Assign u_Sampler to TEXTURE0
     gl.uniform1i(u_Sampler, 0);
-
-    // Enable texture mapping
-    gl.uniform1i(u_UseTextures, false);
 }
 
 function getUniformLocations() {
@@ -257,7 +254,7 @@ function getUniformLocations() {
     gl.uniform1i(u_isPointLighting, isPointLighting);
     gl.uniform1f(u_PointLightBrightness, pointLightBrightness);
 
-    let u_UseTextures = gl.getUniformLocation(gl.program, "u_UseTextures");
+    u_UseTextures = gl.getUniformLocation(gl.program, "u_UseTextures");
     if (!u_UseTextures) {
         console.log('Failed to get the storage location for texture map enable flag');
         return;
@@ -326,6 +323,17 @@ function initCubeVertexBuffers(gl) {
     //  | |v7---|-|v4
     //  |/      |/
     //  v2------v3
+
+    // Texture Coordinates
+    var texCoords = new Float32Array([
+        1.0, 1.0,    0.0, 1.0,   0.0, 0.0,   1.0, 0.0,  // v0-v1-v2-v3 front
+        0.0, 1.0,    0.0, 0.0,   1.0, 0.0,   1.0, 1.0,  // v0-v3-v4-v5 right
+        1.0, 0.0,    1.0, 1.0,   0.0, 1.0,   0.0, 0.0,  // v0-v5-v6-v1 up
+        1.0, 1.0,    0.0, 1.0,   0.0, 0.0,   1.0, 0.0,  // v1-v6-v7-v2 left
+        0.0, 0.0,    1.0, 0.0,   1.0, 1.0,   0.0, 1.0,  // v7-v4-v3-v2 down
+        0.0, 0.0,    1.0, 0.0,   1.0, 1.0,   0.0, 1.0   // v4-v7-v6-v5 back
+    ]);
+
     let vertices = new Float32Array([   // Coordinates
         0.5, 0.5, 0.5,  -0.5, 0.5, 0.5,  -0.5,-0.5, 0.5,   0.5,-0.5, 0.5, // v0-v1-v2-v3 front
         0.5, 0.5, 0.5,   0.5,-0.5, 0.5,   0.5,-0.5,-0.5,   0.5, 0.5,-0.5, // v0-v3-v4-v5 right
@@ -371,6 +379,7 @@ function initCubeVertexBuffers(gl) {
     if (!initArrayBuffer(gl, 'a_Position', vertices, 3, gl.FLOAT)) return -1;
     if (!initArrayBuffer(gl, 'a_Color', colors, 3, gl.FLOAT)) return -1;
     if (!initArrayBuffer(gl, 'a_Normal', normals, 3, gl.FLOAT)) return -1;
+    if (!initArrayBuffer(gl, 'a_TexCoords', texCoords, 2, gl.FLOAT)) return -1;
 
     // Write the indices to the buffer object
     let indexBuffer = gl.createBuffer();
@@ -470,7 +479,7 @@ function popMatrix() { // Retrieve the matrix from the array
 }
 
 
-function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, elapsedtime) {
+function draw(gl, u_ModelMatrix, u_NormalMatrix, elapsedtime) {
     let sliderX = parseInt(Xinputslider.value)/10;
     let sliderY = parseInt(Yinputslider.value)/10;
     let sliderZ = parseInt(Zinputslider.value)/10;
@@ -479,7 +488,8 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_isLighting, elapsedtime) {
     // Clear color and depth buffer
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    gl.uniform1i(u_isLighting, false); // Will not apply lightingr
+    gl.uniform1i(u_isLighting, false); // Will not apply lighting
+    gl.uniform1i(u_UseTextures, true);
 
     // Set the vertex coordinates and color (for the x, y axes)
 
