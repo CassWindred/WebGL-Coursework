@@ -540,7 +540,7 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, elapsedtime) {
     let sliderY = parseInt(Yinputslider.value)/10;
     let sliderZ = parseInt(Zinputslider.value)/10;
     let sliderVector = new Vector3([sliderX, sliderY, sliderZ]);
-    updatePointLightPosition(sliderVector);
+    //updatePointLightPosition(sliderVector);
     // Clear color and depth buffer
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -578,6 +578,10 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, elapsedtime) {
     modelMatrix.rotate(g_xAngle, 1, 0, 0); // Rotate along x axis
 
     //Draw Cube Mesh Objects
+    //Draw Floor
+    let floorMat = new Matrix4(modelMatrix).translate(0, -5,0).scale(50, 0.01, 50);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, floorMat);
+
     let chair1Mat = new Matrix4(modelMatrix);
     chair1Mat.translate(0,-3,3);
     drawchair(gl, u_ModelMatrix, u_NormalMatrix, n, chair1Mat);
@@ -596,11 +600,16 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, elapsedtime) {
     lightBulbRotation += lightBulbRotationStep;
     lightBulbRotation = lightBulbRotation%360;
     let rotationValue = Math.sin(lightBulbRotation).map(-1, 1, -30, 30);
-    lightbulbMat.translate(1,30,1);
-    lightbulbMat.rotate(rotationValue, 1, 0, 0);
+    lightbulbMat.translate(sliderX,32,sliderZ);
+    lightbulbMat.rotate(rotationValue, 1, 0, 0.5);
 
+    lightbulbMat.translate(0,0,0);
+    let lightPointMat = new Matrix4(lightbulbMat).translate(0,-17, 0);
+    let bulbPositionVector = new Vector3([lightPointMat.elements[12], lightPointMat.elements[13], lightPointMat.elements[14]]);
+    
+    updatePointLightPosition(bulbPositionVector);
 
-    drawlightbulb(u_ModelMatrix, u_NormalMatrix, lightbulbMat)
+    drawJSONObject("lightbulb.json",u_ModelMatrix, u_NormalMatrix, lightbulbMat)
 
 }
 
@@ -647,23 +656,10 @@ function drawchair(gl, u_ModelMatrix, u_NormalMatrix, n, modMatrix) {
     drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, legDMat);
 }
 
-function drawsphere(u_ModelMatrix, u_NormalMatrix, modMatrix) {
-    JSONObjects["sphere.json"].meshes.forEach((mesh, index) => {
-    let n = initMeshVertexBuffers(mesh);
-    // Pass the model matrix to the uniform letiable
-    gl.uniformMatrix4fv(u_ModelMatrix, false, modMatrix.elements);
 
-    // Calculate the normal transformation matrix and pass it to u_NormalMatrix
-    g_normalMatrix.setInverseOf(modMatrix);
-    g_normalMatrix.transpose();
-    gl.uniformMatrix4fv(u_NormalMatrix, false, g_normalMatrix.elements);
 
-    // Draw the mesh
-    gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);})
-}
-
-function drawlightbulb(u_ModelMatrix, u_NormalMatrix, modMatrix) {
-    JSONObjects["lightbulb.json"].meshes.forEach((mesh, index) => {
+function drawJSONObject(objectName, u_ModelMatrix, u_NormalMatrix, modMatrix) {
+    JSONObjects[objectName].meshes.forEach((mesh, index) => {
         let n = initMeshVertexBuffers(mesh);
         // Pass the model matrix to the uniform letiable
         gl.uniformMatrix4fv(u_ModelMatrix, false, modMatrix.elements);
@@ -676,3 +672,4 @@ function drawlightbulb(u_ModelMatrix, u_NormalMatrix, modMatrix) {
         // Draw the mesh
         gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);})
 }
+
