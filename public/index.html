@@ -1,34 +1,118 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <title>Chair</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>XVKG58 Coursework</title>
+
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+          integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
 </head>
 
 <body onload="main()">
-<canvas id="webgl" width="400" height="400">
-    Please use a browser that supports "canvas"
-</canvas>
+<div class="container-fluid mt-6 pt-6">
+    <div class="row mt-4">
+        <div class="col-auto">
+            <div class="card mt-6 p-0 shadow">
+                <div class="card-header">Canvas:</div>
+                <div class="card-body">
+            <canvas id="webgl" width="600" height="400">
+                Please use a browser that supports "canvas"
+            </canvas> </div></div>
+            <div class="card">
+            <table class="table">
+                <tr class="text-center">
+                    <th>X Transform: <span id="xout">0</span></th>
+                    <th>Y Transform: <span id="yout">0</span></th>
+                    <th>Z Transform: <span id="zout">0</span></th>
+                </tr>
+                <tr>
+                    <th>
+        <span class="slidecontainer p-0">
+    <input type="range" class="custom-range" min="-100" max="100" value="0" id="inputSliderX">
+</span>
+                    </th>
+                    <th>
+        <span class="slidecontainer p-0">
+    <input type="range" class="custom-range" min="-100" max="100" value="0" id="inputSliderY">
+</span>
+                    </th>
+                    <th>
+        <span class="slidecontainer p-0">
+    <input type="range" class="custom-range" min="-100" max="100" value="0" id="inputSliderZ">
+</span>
+                    </th>
 
-<div class="slidecontainer">
-    X : <input type="range" min="-100" max="100" value="0" class="slider" id="inputSliderX"> <div id="xout">X</div>
-</div>
-<div class="slidecontainer">
-    Y : <input type="range" min="-100" max="100" value="0" class="slider" id="inputSliderY"> <div id="yout">Y</div>
-</div>
-<div class="slidecontainer">
-    Z : <input type="range" min="-100" max="100" value="0" class="slider" id="inputSliderZ"> <div id="zout">Z</div>
-</div>
-<div class="slidecontainer">
-    Point Light Brightness : <input type="range" min="0" max="200" value="10" class="slider" id="pointBrightSlider"> <div id="pbout">Z</div>
-</div>
-<button type="button" id="toggleDirLight">Toggle Directional Lighting</button>
-<button type="button" id="togglePointLight">Toggle Point Lighting</button>
+            </table>
 
+            <table class="table">
+                <tr>
+                    <th>
+                    Point Light Brightness: <span id="pbout">1</span>
+                    </th>
+                    <th> Direction Light Brightness <span id="dbout">1</span></th>
+                </tr>
+                <tr>
+                    <th>
+            <div class="slidecontainer">
+                 <input type="range" min="0" max="100" value="10" class="custom-range"
+                                                id="pointBrightSlider"></div>
+                    </th>
+                    <th>
+                        <div class="slidecontainer">
+                            <input type="range" min="0" max="100" value="10" class="custom-range"
+                                   id="dirBrightSlider"></div>
+                    </th>
+                </tr>
+
+
+            </table>
+
+        </div>
+
+
+
+
+
+            </div>
+        <div class="col-3">
+
+            <div class="card">
+                <div class="card-header">Instructions:</div>
+                <div class="card-body">
+
+                    To the left is the canvas, beneath it are a series of controls that can be used to
+                    control the behaviour of the render.
+                </div>
+        </div>
+            <div class="card mt-2">
+                <div class="card-header">Lighting Toggles:</div>
+            <button type="button" class="btn btn-outline-primary" id="toggleDirLight">Toggle Directional Lighting</button>
+            <button type="button" class="btn btn-outline-primary" id="togglePointLight">Toggle Point Lighting</button>
+            <button type="button" class="btn btn-outline-primary" id="toggleAmbientLight">Toggle Ambient Lighting</button>
+            </div></div>
+    </div>
+
+
+
+</div>
+</div>
+
+
+</div>
 <script src="./lib/webgl-utils.js"></script>
 <script src="./lib/webgl-debug.js"></script>
 <script src="./lib/cuon-utils.js"></script>
 <script src="./lib/cuon-matrix.js"></script>
 <script src="./javascripts/WebGL.js"></script>
+<script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+        integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+        integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+        crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+        integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6"
+        crossorigin="anonymous"></script>
 </body>
 </html>

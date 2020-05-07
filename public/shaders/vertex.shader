@@ -6,7 +6,6 @@ attribute vec4 a_Color;
 attribute vec4 a_Normal;// Normal
 attribute vec2 a_TexCoords;
 uniform mat4 u_ModelMatrix;
-uniform vec3 u_LightColor;
 uniform mat4 u_NormalMatrix;
 uniform mat4 u_ViewMatrix;
 uniform mat4 u_ProjMatrix;

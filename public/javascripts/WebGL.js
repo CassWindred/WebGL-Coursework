@@ -1,9 +1,7 @@
-
 // Vertex shader program
 let VSHADER_SOURCE;
 // Fragment shader program
 let FSHADER_SOURCE;
-
 
 
 let gl;
@@ -27,27 +25,33 @@ let Zinputslider;
 let pointBrightnessinputslider;
 
 
-let u_PointLightPosition;
-let u_PointLightColor;
 let u_isDirectionalLighting;
 let u_isPointLighting;
+let u_isAmbientLighting;
 let u_UseTextures;
 
-let u_LightColor ;
+
+
 let u_ModelMatrix;
-let u_ViewMatrix ;
+let u_ViewMatrix;
 let u_NormalMatrix;
 let u_isLighting;
-let u_PointLightBrightness;
 let u_ProjMatrix;
-let u_LightDirection;
+let u_Sampler;
 
-let pointLightPosition = new Vector3([0.6,0.6,0.6]);
-let pointLightColor = new Vector3([0.5, 1.0, 0.5]);
+let u_AmbientLightColor;
+
+let u_DirectionalLightColor;
+let u_LightDirection;
+let u_DirectionalLightBrightness;
+
+let pointLightPosition = new Vector3([0.6, 0.6, 0.6]);
+let pointLightColor = new Vector3([1.0, 0.5, 0.4]);
 let pointLightBrightness = 2.2;
 
 let isPointLighting = 1;
 let isDirectionalLighting = 1;
+let isAmbientLighting = 1;
 let isLighting = 1;
 
 let lightBulbRotation = 0;
@@ -58,9 +62,15 @@ function togglePointLighting() {
     gl.uniform1i(u_isPointLighting, isPointLighting);
 
 }
+
 function toggleDirectionalLighting() {
     isDirectionalLighting = !isDirectionalLighting;
     gl.uniform1i(u_isDirectionalLighting, isDirectionalLighting);
+}
+
+function toggleAmbientLighting() {
+    isAmbientLighting = !isAmbientLighting;
+    gl.uniform1i(u_isAmbientLighting, isAmbientLighting);
 }
 
 function toggleLighting() {
@@ -86,8 +96,8 @@ const Camera = {
     resetViewMatrix: () => {
         let posElements = this._position.elements;
         let lookElements = this._lookAt.elements;
-      u_ViewMatrix.setLookAt(posElements[0],posElements[1],posElements[2],
-      lookElements[0],lookElements[1],lookElements[2], 0, 1, 0);
+        u_ViewMatrix.setLookAt(posElements[0], posElements[1], posElements[2],
+            lookElements[0], lookElements[1], lookElements[2], 0, 1, 0);
         gl.uniformMatrix4fv(u_ViewMatrix, false, this.viewMatrix.elements);
     },
     set position(newPosition) {
@@ -95,7 +105,7 @@ const Camera = {
         this.resetViewMatrix();
     },
     get position() {
-       return this._position
+        return this._position
     },
     move: (moveVector) => {
         vecElements = moveVector.elements;
@@ -109,29 +119,48 @@ const Camera = {
     }
 };
 
-let JSONObjects = {"sphere.json": {},
-"lightbulb.json": {}};
+let JSONObjects =
+    {
+        "sphere.json": {},
+        "lightbulb.json": {},
+        "cup.json": {},
+        "testobj.json": {},
+    };
+
+let loadedTextures = 0;
+let Textures = {
+    "wood.png": {},
+    "carpet.png": {},
+    "redplastic.png": {},
+    "leather.png": {},
+};
 
 Number.prototype.map = function (in_min, in_max, out_min, out_max) { //A function to map one range to another
     return (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 };
 
-function main() {
+async function main() {
     // Retrieve <canvas> element
     let canvas = document.getElementById('webgl');
     Xinputslider = document.getElementById("inputSliderX");
-    Xinputslider.oninput = ()=>{document.getElementById("xout").innerHTML = Xinputslider.value/10;};
+    Xinputslider.oninput = () => {
+        document.getElementById("xout").innerHTML = Xinputslider.value / 10;
+    };
     Yinputslider = document.getElementById("inputSliderY");
-    Yinputslider.oninput = ()=>{document.getElementById("yout").innerHTML = Yinputslider.value/10;};
+    Yinputslider.oninput = () => {
+        document.getElementById("yout").innerHTML = Yinputslider.value / 10;
+    };
     Zinputslider = document.getElementById("inputSliderZ");
-    Zinputslider.oninput = ()=>{document.getElementById("zout").innerHTML = Zinputslider.value/10;
+    Zinputslider.oninput = () => {
+        document.getElementById("zout").innerHTML = Zinputslider.value / 10;
     };
 
     pointBrightnessinputslider = document.getElementById("pointBrightSlider");
-    pointBrightnessinputslider.oninput = ()=>{
-        pointLightBrightness = pointBrightnessinputslider.value/10;
+    pointBrightnessinputslider.oninput = () => {
+        pointLightBrightness = pointBrightnessinputslider.value / 10;
         document.getElementById("pbout").innerHTML = pointLightBrightness;
-        updatePointBrightness()};
+        updatePointBrightness()
+    };
 
     // Get the rendering context for WebGL
     console.log(baseurl);
@@ -152,10 +181,11 @@ function main() {
 
     getUniformLocations();
 
-
+    gl.uniform3f(u_AmbientLightColor, 1.0, 1.0, 1.0);
+    gl.uniform1i(u_isAmbientLighting, false);
 
     // Set the light color (white)
-    gl.uniform3f(u_LightColor, 1.0, 1.0, 1.0);
+    gl.uniform3f(u_DirectionalLightColor, 1.0, 1.0, 1.0);
     // Set the light direction (in the world coordinate)
     let lightDirection = new Vector3([0.5, 3.0, 4.0]);
     lightDirection.normalize();     // Normalize
@@ -168,41 +198,29 @@ function main() {
     // Calculate the view matrix and the projection matrix
     viewMatrix.setLookAt(0, 25, 40, 0, 0, 0, 0, 1, 0);
 
-    projMatrix.setPerspective(30, canvas.width/canvas.height, 1, 100);
+    projMatrix.setPerspective(30, canvas.width / canvas.height, 1, 100);
     // Pass the model, view, and projection matrix to the uniform letiable respectively
     gl.uniformMatrix4fv(u_ViewMatrix, false, viewMatrix.elements);
     gl.uniformMatrix4fv(u_ProjMatrix, false, projMatrix.elements);
 
     //Do initialisation for textures
 
-    
-    let woodTexture = gl.createTexture();   // Create a texture object
-    if (!woodTexture) {
-        console.log('Failed to create the wood texture object');
-        return false;
-    }
+
     // Get the storage location of u_Sampler
     let u_Sampler = gl.getUniformLocation(gl.program, 'u_Sampler');
     if (!u_Sampler) {
         console.log('Failed to get the storage location of u_Sampler');
         return false;
     }
+    console.log("Downloading Textures");
+    await initialiseTextures(gl);
+    console.log("Textures Downloaded");
+    loadTexture(Textures["wood.png"], u_Sampler);
 
-
-    woodTexture.image = new Image();  // Create the image object
-    if (!woodTexture.image) {
-        console.log('Failed to create the wood image object');
-        return false;
-    }
-
-    // Tell the browser to load an image
-    // Register the event handler to be called on loading an image
-    woodTexture.image.onload = function(){ loadTexture(woodTexture, u_UseTextures); };
-    woodTexture.image.src = '../img/wood.png';
 
     loadJSONObjects();
 
-    document.onkeydown = function(ev){
+    document.onkeydown = function (ev) {
         keydown(ev, gl, u_ModelMatrix, u_NormalMatrix, u_isLighting);
     };
     document.getElementById("toggleDirLight").onclick = () => {
@@ -212,17 +230,46 @@ function main() {
         togglePointLighting();
     };
     let prevTime = Date.now();
+
     function tick() {
         let currTime = Date.now();
         let elapsed = currTime - prevTime; //Provides the time elapsed, in milliseconds
         prevTime = currTime;
-        draw(gl, u_ModelMatrix, u_NormalMatrix, elapsed);
+        draw(gl, u_ModelMatrix, u_NormalMatrix, u_Sampler, elapsed);
         requestAnimationFrame(tick)
     }
+
     tick();
 }
 
-function loadTexture(texture) {
+async function initialiseTextures(gl, u_Sampler) {
+    return new Promise(((resolve, reject) => {
+        for (let tex in Textures) {
+            Textures[tex] = gl.createTexture();   // Create a texture object
+            if (!Textures[tex]) {
+                console.log('Failed to create the ' + tex + ' texture object');
+                reject();
+            }
+            Textures[tex].image = new Image();  // Create the image object
+            if (!Textures[tex].image) {
+                console.log('Failed to create the ' + tex + ' image object');
+                reject();
+            }
+
+            // Tell the browser to load an image
+            // Register the event handler to be called on loading an image
+            Textures[tex].image.onload = () => { //Resolves only when all textures are loaded
+                loadedTextures++;
+                if (loadedTextures >= Object.keys(Textures).length) {
+                   resolve();
+                }};
+            Textures[tex].image.src = '../img/' + tex;
+
+        }
+    }))
+}
+
+function loadTexture(texture, u_Sampler) {
     console.log("Loading Texture");
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); // Flip the image's y axis
 
@@ -243,25 +290,32 @@ function loadTexture(texture) {
 
 function getUniformLocations() {
     // Get the storage locations of uniform attributes
-    u_LightColor = gl.getUniformLocation(gl.program, "u_LightColor");
+
     u_ModelMatrix = gl.getUniformLocation(gl.program, 'u_ModelMatrix');
     u_ViewMatrix = gl.getUniformLocation(gl.program, 'u_ViewMatrix');
     u_NormalMatrix = gl.getUniformLocation(gl.program, 'u_NormalMatrix');
     u_ProjMatrix = gl.getUniformLocation(gl.program, 'u_ProjMatrix');
+
+    u_AmbientLightColor = gl.getUniformLocation(gl.program, 'u_AmbientLightColor');
+
     u_LightDirection = gl.getUniformLocation(gl.program, 'u_LightDirection');
-    u_PointLightColor = gl.getUniformLocation(gl.program, 'u_PointLightColor');
-    u_PointLightPosition = gl.getUniformLocation(gl.program, 'u_PointLightPosition');
+    u_DirectionalLightColor = gl.getUniformLocation(gl.program, "u_DirectionalLightColor");
+    u_DirectionalLightBrightness = gl.getUniformLocation(gl.program, "u_DirectionalLightBrightness");
 
     // Trigger using lighting or not
     u_isLighting = gl.getUniformLocation(gl.program, 'u_isLighting');
     u_isPointLighting = gl.getUniformLocation(gl.program, "u_isPointLighting");
     u_isDirectionalLighting = gl.getUniformLocation(gl.program, "u_isDirectionalLighting");
+    u_isAmbientLighting = gl.getUniformLocation(gl.program, "u_isDirectionalLighting");
+
+    u_PointLightColor = gl.getUniformLocation(gl.program, 'u_PointLightColor');
+    u_PointLightPosition = gl.getUniformLocation(gl.program, 'u_PointLightPosition');
     u_PointLightBrightness = gl.getUniformLocation(gl.program, "u_PointLightBrightness");
 
     if (!u_ModelMatrix || !u_ViewMatrix || !u_NormalMatrix ||
-        !u_ProjMatrix || !u_LightColor || !u_LightDirection ||
-        !u_isLighting ) {
-        console.log('Failed to Get the storage locations of u_ModelMatrix, u_ViewMatrix, and/or u_ProjMatrix');
+        !u_ProjMatrix || !u_DirectionalLightColor || !u_LightDirection ||
+        !u_isLighting) {
+        console.log('Failed to Get the storage locations of a First Stage Uniform');
         return;
     }
     gl.uniform1i(u_isDirectionalLighting, isDirectionalLighting);
@@ -278,7 +332,7 @@ function getUniformLocations() {
 function loadShaders() {
     //Get fragment shader from server
     let request = new XMLHttpRequest();
-    request.open("GET", baseurl+ "/shaders/vertex.shader", false);
+    request.open("GET", baseurl + "/shaders/vertex.shader", false);
     request.send(null);
     if (request.status === 200) {
 
@@ -288,7 +342,7 @@ function loadShaders() {
     }
     //Get vertex shader from server
     request = new XMLHttpRequest();
-    request.open("GET", baseurl+"/shaders/fragment.shader", false);
+    request.open("GET", baseurl + "/shaders/fragment.shader", false);
     request.send(null);
     if (request.status === 200) {
         FSHADER_SOURCE = request.responseText;
@@ -341,23 +395,25 @@ function keydown(ev, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
         case 17: //Ctrl
             g_zoom = (g_zoom - ZOOM_STEP);
             break;
-        default: return; // Skip drawing at no effective action
+        default:
+            return; // Skip drawing at no effective action
     }
 }
 
-function initMeshVertexBuffers(mesh) {
+function initMeshVertexBuffers(mesh, color = [0,0,1]) {
     function flatten(arr) { //Flattens arrays, used to flatten the faces array
         return arr.reduce(function (flat, toFlatten) {
             return flat.concat(Array.isArray(toFlatten) ? flatten(toFlatten) : toFlatten);
         }, []);
     }
+
     let vertices = new Float32Array(mesh.vertices);
     let normals = new Float32Array(mesh.normals);
     let texCoords = new Float32Array(mesh.texturecoords[0]);
     let indices = new Uint8Array(flatten(mesh.faces));
     let colors = [];
-    for (let i = 0; i < vertices.length/3; i++) {
-        colors = colors.concat([0, 0, 1])
+    for (let i = 0; i < vertices.length / 3; i++) {
+        colors = colors.concat(color)
     }
     colors = new Float32Array(colors);
 
@@ -392,52 +448,52 @@ function initCubeVertexBuffers(gl) {
 
     // Texture Coordinates
     var texCoords = new Float32Array([
-        1.0, 1.0,    0.0, 1.0,   0.0, 0.0,   1.0, 0.0,  // v0-v1-v2-v3 front
-        0.0, 1.0,    0.0, 0.0,   1.0, 0.0,   1.0, 1.0,  // v0-v3-v4-v5 right
-        1.0, 0.0,    1.0, 1.0,   0.0, 1.0,   0.0, 0.0,  // v0-v5-v6-v1 up
-        1.0, 1.0,    0.0, 1.0,   0.0, 0.0,   1.0, 0.0,  // v1-v6-v7-v2 left
-        0.0, 0.0,    1.0, 0.0,   1.0, 1.0,   0.0, 1.0,  // v7-v4-v3-v2 down
-        0.0, 0.0,    1.0, 0.0,   1.0, 1.0,   0.0, 1.0   // v4-v7-v6-v5 back
+        1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0,  // v0-v1-v2-v3 front
+        0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0,  // v0-v3-v4-v5 right
+        1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0,  // v0-v5-v6-v1 up
+        1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0,  // v1-v6-v7-v2 left
+        0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0,  // v7-v4-v3-v2 down
+        0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0   // v4-v7-v6-v5 back
     ]);
 
     let vertices = new Float32Array([   // Coordinates
-        0.5, 0.5, 0.5,  -0.5, 0.5, 0.5,  -0.5,-0.5, 0.5,   0.5,-0.5, 0.5, // v0-v1-v2-v3 front
-        0.5, 0.5, 0.5,   0.5,-0.5, 0.5,   0.5,-0.5,-0.5,   0.5, 0.5,-0.5, // v0-v3-v4-v5 right
-        0.5, 0.5, 0.5,   0.5, 0.5,-0.5,  -0.5, 0.5,-0.5,  -0.5, 0.5, 0.5, // v0-v5-v6-v1 up
-        -0.5, 0.5, 0.5,  -0.5, 0.5,-0.5,  -0.5,-0.5,-0.5,  -0.5,-0.5, 0.5, // v1-v6-v7-v2 left
-        -0.5,-0.5,-0.5,   0.5,-0.5,-0.5,   0.5,-0.5, 0.5,  -0.5,-0.5, 0.5, // v7-v4-v3-v2 down
-        0.5,-0.5,-0.5,  -0.5,-0.5,-0.5,  -0.5, 0.5,-0.5,   0.5, 0.5,-0.5  // v4-v7-v6-v5 back
+        0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, // v0-v1-v2-v3 front
+        0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, // v0-v3-v4-v5 right
+        0.5, 0.5, 0.5, 0.5, 0.5, -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, // v0-v5-v6-v1 up
+        -0.5, 0.5, 0.5, -0.5, 0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5, 0.5, // v1-v6-v7-v2 left
+        -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, -0.5, 0.5, -0.5, -0.5, 0.5, // v7-v4-v3-v2 down
+        0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5  // v4-v7-v6-v5 back
     ]);
 
 
     let colors = new Float32Array([    // Colors
-        1, 0, 0,   1, 0, 0,   1, 0, 0,  1, 0, 0,     // v0-v1-v2-v3 front
-        1, 0, 0,   1, 0, 0,   1, 0, 0,  1, 0, 0,     // v0-v3-v4-v5 right
-        1, 0, 0,   1, 0, 0,   1, 0, 0,  1, 0, 0,     // v0-v5-v6-v1 up
-        1, 0, 0,   1, 0, 0,   1, 0, 0,  1, 0, 0,     // v1-v6-v7-v2 left
-        1, 0, 0,   1, 0, 0,   1, 0, 0,  1, 0, 0,     // v7-v4-v3-v2 down
-        1, 0, 0,   1, 0, 0,   1, 0, 0,  1, 0, 0　    // v4-v7-v6-v5 back
+        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,     // v0-v1-v2-v3 front
+        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,     // v0-v3-v4-v5 right
+        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,     // v0-v5-v6-v1 up
+        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,     // v1-v6-v7-v2 left
+        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,     // v7-v4-v3-v2 down
+        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0　    // v4-v7-v6-v5 back
     ]);
 
 
     let normals = new Float32Array([    // Normal
-        0.0, 0.0, 1.0,   0.0, 0.0, 1.0,   0.0, 0.0, 1.0,   0.0, 0.0, 1.0,  // v0-v1-v2-v3 front
-        1.0, 0.0, 0.0,   1.0, 0.0, 0.0,   1.0, 0.0, 0.0,   1.0, 0.0, 0.0,  // v0-v3-v4-v5 right
-        0.0, 1.0, 0.0,   0.0, 1.0, 0.0,   0.0, 1.0, 0.0,   0.0, 1.0, 0.0,  // v0-v5-v6-v1 up
-        -1.0, 0.0, 0.0,  -1.0, 0.0, 0.0,  -1.0, 0.0, 0.0,  -1.0, 0.0, 0.0,  // v1-v6-v7-v2 left
-        0.0,-1.0, 0.0,   0.0,-1.0, 0.0,   0.0,-1.0, 0.0,   0.0,-1.0, 0.0,  // v7-v4-v3-v2 down
-        0.0, 0.0,-1.0,   0.0, 0.0,-1.0,   0.0, 0.0,-1.0,   0.0, 0.0,-1.0   // v4-v7-v6-v5 back
+        0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0,  // v0-v1-v2-v3 front
+        1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0,  // v0-v3-v4-v5 right
+        0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0,  // v0-v5-v6-v1 up
+        -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0,  // v1-v6-v7-v2 left
+        0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0,  // v7-v4-v3-v2 down
+        0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0   // v4-v7-v6-v5 back
     ]);
 
 
     // Indices of the vertices
     let indices = new Uint8Array([
-        0, 1, 2,   0, 2, 3,    // front
-        4, 5, 6,   4, 6, 7,    // right
-        8, 9,10,   8,10,11,    // up
-        12,13,14,  12,14,15,    // left
-        16,17,18,  16,18,19,    // down
-        20,21,22,  20,22,23     // back
+        0, 1, 2, 0, 2, 3,    // front
+        4, 5, 6, 4, 6, 7,    // right
+        8, 9, 10, 8, 10, 11,    // up
+        12, 13, 14, 12, 14, 15,    // left
+        16, 17, 18, 16, 18, 19,    // down
+        20, 21, 22, 20, 22, 23     // back
     ]);
 
 
@@ -460,7 +516,7 @@ function initCubeVertexBuffers(gl) {
     return indices.length;
 }
 
-function initArrayBuffer (gl, attribute, data, num, type) {
+function initArrayBuffer(gl, attribute, data, num, type) {
     // Create a buffer object
     let buffer = gl.createBuffer();
     if (!buffer) {
@@ -489,12 +545,12 @@ function initAxesVertexBuffers(gl) {
 
     let verticesColors = new Float32Array([
         // Vertex coordinates and color (for axes)
-        -20.0,  0.0,   0.0,  1.0,  1.0,  1.0,  // (x,y,z), (r,g,b)
-        20.0,  0.0,   0.0,  1.0,  1.0,  1.0,
-        0.0,  20.0,   0.0,  1.0,  1.0,  1.0,
-        0.0, -20.0,   0.0,  1.0,  1.0,  1.0,
-        0.0,   0.0, -20.0,  1.0,  1.0,  1.0,
-        0.0,   0.0,  20.0,  1.0,  1.0,  1.0
+        -20.0, 0.0, 0.0, 1.0, 1.0, 1.0,  // (x,y,z), (r,g,b)
+        20.0, 0.0, 0.0, 1.0, 1.0, 1.0,
+        0.0, 20.0, 0.0, 1.0, 1.0, 1.0,
+        0.0, -20.0, 0.0, 1.0, 1.0, 1.0,
+        0.0, 0.0, -20.0, 1.0, 1.0, 1.0,
+        0.0, 0.0, 20.0, 1.0, 1.0, 1.0
     ]);
     let n = 6;
 
@@ -521,7 +577,7 @@ function initAxesVertexBuffers(gl) {
 
     // Get the storage location of a_Position, assign buffer and enable
     let a_Color = gl.getAttribLocation(gl.program, 'a_Color');
-    if(a_Color < 0) {
+    if (a_Color < 0) {
         console.log('Failed to get the storage location of a_Color');
         return -1;
     }
@@ -535,17 +591,17 @@ function initAxesVertexBuffers(gl) {
 }
 
 
-function draw(gl, u_ModelMatrix, u_NormalMatrix, elapsedtime) {
-    let sliderX = parseInt(Xinputslider.value)/10;
-    let sliderY = parseInt(Yinputslider.value)/10;
-    let sliderZ = parseInt(Zinputslider.value)/10;
+function draw(gl, u_ModelMatrix, u_NormalMatrix, u_Sampler, elapsedtime) {
+    let sliderX = parseInt(Xinputslider.value) / 10;
+    let sliderY = parseInt(Yinputslider.value) / 10;
+    let sliderZ = parseInt(Zinputslider.value) / 10;
     let sliderVector = new Vector3([sliderX, sliderY, sliderZ]);
     //updatePointLightPosition(sliderVector);
     // Clear color and depth buffer
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     gl.uniform1i(u_isLighting, false); // Will not apply lighting
-    gl.uniform1i(u_UseTextures, false);
+    gl.uniform1i(u_UseTextures, true);
 
     // Set the vertex coordinates and color (for the x, y axes)
 
@@ -579,37 +635,60 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, elapsedtime) {
 
     //Draw Cube Mesh Objects
     //Draw Floor
-    let floorMat = new Matrix4(modelMatrix).translate(0, -5,0).scale(50, 0.01, 50);
+    loadTexture(Textures["carpet.png"], u_Sampler);
+    let floorMat = new Matrix4(modelMatrix).translate(0, -5, 0).scale(50, 0.01, 50);
     drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, floorMat);
 
+    loadTexture(Textures["wood.png"], u_Sampler);
     let chair1Mat = new Matrix4(modelMatrix);
-    chair1Mat.translate(0,-3,3);
+    chair1Mat.translate(-7, -2.6, -6);
     drawchair(gl, u_ModelMatrix, u_NormalMatrix, n, chair1Mat);
 
     let chair2Mat = new Matrix4(modelMatrix);
-    chair2Mat.translate(4,-3,3);
+    chair2Mat.translate(7, -3, -3).rotate(-50, 0, 1, 0);
     drawchair(gl, u_ModelMatrix, u_NormalMatrix, n, chair2Mat);
 
-    // Draw JSON Mesh objects
-    //let sphereMat = new Matrix4(modelMatrix);
-    //drawsphere(u_ModelMatrix, u_NormalMatrix, sphereMat);
+
+    //Draw Coffee Table
+    let coffeeTableMat = new Matrix4(modelMatrix);
+    coffeeTableMat.translate(0, -3.6, 0);
+    let cupMat = new Matrix4(coffeeTableMat); //Prepare cupMatrix as child of table matrix
+    drawcoffeetable(gl, u_ModelMatrix, u_NormalMatrix, n, coffeeTableMat);
+    //Draw
+    cupMat.translate(3.1, 0.4, -1.4);
+    cupMat.scale(0.2, 0.2, 0.2);
+    loadTexture(Textures["leather.png"], u_Sampler);
+    let sofaMat = new Matrix4(modelMatrix).translate(0, -3.6, -6);
+    drawSofa(gl, u_ModelMatrix,u_NormalMatrix,n, sofaMat);
+
+
+
+
+    // Draw JSON Mesh objects (THIS MUST BE DONE AFTER CUBE MESH DRAWING
+    loadTexture(Textures["redplastic.png"]);
+    drawJSONObject("cup.json", u_ModelMatrix, u_NormalMatrix, cupMat);
+
+    //Turn off lighting for bulb draw (point light is in bulb which makes the bulb receive no light)
+    gl.uniform1i(u_isLighting, false);
+    //Draw Lightbulb
 
     let lightbulbMat = new Matrix4(modelMatrix);
 
-    lightbulbMat.scale(0.3,0.3, 0.3);
-    lightBulbRotation += lightBulbRotationStep;
-    lightBulbRotation = lightBulbRotation%360;
+    lightbulbMat.scale(0.3, 0.3, 0.3);
+    lightBulbRotation += lightBulbRotationStep * elapsedtime/10;
+    lightBulbRotation = lightBulbRotation % 360;
     let rotationValue = Math.sin(lightBulbRotation).map(-1, 1, -30, 30);
-    lightbulbMat.translate(sliderX,32,sliderZ);
+    lightbulbMat.translate(0, 32, 0);
     lightbulbMat.rotate(rotationValue, 1, 0, 0.5);
 
-    lightbulbMat.translate(0,0,0);
-    let lightPointMat = new Matrix4(lightbulbMat).translate(0,-17, 0);
+    lightbulbMat.translate(0, 0, 0);
+    let lightPointMat = new Matrix4(lightbulbMat).translate(0, -17, 0);
     let bulbPositionVector = new Vector3([lightPointMat.elements[12], lightPointMat.elements[13], lightPointMat.elements[14]]);
-    
+
     updatePointLightPosition(bulbPositionVector);
 
-    drawJSONObject("lightbulb.json",u_ModelMatrix, u_NormalMatrix, lightbulbMat)
+    drawJSONObject("lightbulb.json", u_ModelMatrix, u_NormalMatrix, lightbulbMat, [0.7, 0.6, 0.3]);
+    gl.uniform1i(u_isLighting, true); //Point lighting reset to current value
 
 }
 
@@ -625,7 +704,7 @@ function drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, modMatrix) {
 
     // Draw the cube
     gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
-    
+
 }
 
 function drawchair(gl, u_ModelMatrix, u_NormalMatrix, n, modMatrix) {
@@ -638,7 +717,7 @@ function drawchair(gl, u_ModelMatrix, u_NormalMatrix, n, modMatrix) {
     drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, backmatrix);
 
     //Draw Legs
-    let legMat = new Matrix4(modMatrix).scale(0.4,2,0.4);
+    let legMat = new Matrix4(modMatrix).scale(0.4, 2, 0.4);
 
     let legAMat = new Matrix4(legMat);
     let legBMat = new Matrix4(legMat);
@@ -656,11 +735,86 @@ function drawchair(gl, u_ModelMatrix, u_NormalMatrix, n, modMatrix) {
     drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, legDMat);
 }
 
+function drawcoffeetable(gl, u_ModelMatrix, u_NormalMatrix, n, modMatrix) {
+    modMatrix.scale(4, 0.7, 2);
+    //Draw Draw table surface
+    let surfacematrix = new Matrix4(modMatrix).scale(2.0, 0.5, 2.6);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, surfacematrix);
 
 
-function drawJSONObject(objectName, u_ModelMatrix, u_NormalMatrix, modMatrix) {
+    //Draw Legs
+    let legMat = new Matrix4(modMatrix).scale(0.4, 2, 0.4);
+
+    let legAMat = new Matrix4(legMat);
+    let legBMat = new Matrix4(legMat);
+    let legCMat = new Matrix4(legMat);
+    let legDMat = new Matrix4(legMat);
+
+    legAMat.translate(-2, -0.5, -2.75);
+    legBMat.translate(2, -0.5, -2.75);
+    legCMat.translate(-2, -0.5, 2.75);
+    legDMat.translate(2, -0.5, 2.75);
+
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, legAMat);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, legBMat);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, legCMat);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, legDMat);
+}
+
+function drawSofa(gl, u_ModelMatrix, u_NormalMatrix, n, modMatrix) {
+
+    //Draw Draw table surface
+    let baseMatrix = new Matrix4(modMatrix).scale(10, 0.6, 4);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, baseMatrix);
+
+
+    //Draw Legs
+    let legMat = new Matrix4(modMatrix);
+    let legAMat = new Matrix4(legMat);
+    let legBMat = new Matrix4(legMat);
+    let legCMat = new Matrix4(legMat);
+    let legDMat = new Matrix4(legMat);
+
+    legAMat.translate(5, -0.3, -2);
+    legBMat.translate(5, -0.3, 2);
+    legCMat.translate(-5, -0.3, -2);
+    legDMat.translate(-5, -0.3, 2);
+
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, legAMat);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, legBMat);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, legCMat);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, legDMat);
+
+    //Draw Arms
+    let armMat = new Matrix4(modMatrix).scale(1,2.5, 4);
+    let armLeftMat = new Matrix4(armMat).translate(5,0.5, 0);
+    let armRightMat = new Matrix4(armMat).translate(-5,0.5, 0);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, armLeftMat);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, armRightMat);
+
+    //Draw Back
+    let backMat = new Matrix4(modMatrix)
+        .rotate(-15, 1, 0, 0)
+        .scale(10, 3, 0.6)
+        .translate(0, 0.7, -2);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, backMat);
+
+    //Draw Pillows
+    let pillowMat = new Matrix4(modMatrix)
+        .translate(0, 0.5, 0.1)
+        .scale(4.2, 0.5, 3);
+    let pillowLeftMat = new Matrix4(pillowMat).translate(-0.53, 0, 0);
+    let pillowRightMat = new Matrix4(pillowMat).translate(0.53, 0, 0);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, pillowLeftMat);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, pillowRightMat);
+
+
+}
+
+
+function drawJSONObject(objectName, u_ModelMatrix, u_NormalMatrix, modMatrix, color = [0,1,0]) {
     JSONObjects[objectName].meshes.forEach((mesh, index) => {
-        let n = initMeshVertexBuffers(mesh);
+        let n = initMeshVertexBuffers(mesh, color);
         // Pass the model matrix to the uniform letiable
         gl.uniformMatrix4fv(u_ModelMatrix, false, modMatrix.elements);
 
@@ -670,6 +824,7 @@ function drawJSONObject(objectName, u_ModelMatrix, u_NormalMatrix, modMatrix) {
         gl.uniformMatrix4fv(u_NormalMatrix, false, g_normalMatrix.elements);
 
         // Draw the mesh
-        gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);})
+        gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
+    })
 }
 
