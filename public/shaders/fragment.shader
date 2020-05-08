@@ -1,11 +1,11 @@
 #ifdef GL_ES
 precision mediump float;
 #endif
-uniform bool u_isDirectionalLighting;
+uniform float u_isDirectionalLighting;
 uniform bool u_UseTextures;
-uniform bool u_isPointLighting;
+uniform float u_isPointLighting;
 uniform bool u_isLighting;
-uniform bool u_isAmbientLighting;
+uniform float u_isAmbientLighting;
 
 uniform sampler2D u_Sampler;
 
@@ -35,22 +35,19 @@ void main() {
         useColor = v_Color;
         //testmod=1.0;
     }
-    if (u_isLighting) {
+    if (u_isLighting && !((u_isDirectionalLighting==0.0)&&(u_isPointLighting==0.0))) {
     vec3 normal = normalize(v_Normal); //Get the normal
 
         //Do the calculations for the directional light
     float nDotL = max(dot(normal, u_LightDirection), 0.0);
-    vec3 directionalDiffuse = u_DirectionalLightColor * useColor.rgb * nDotL;//Calculates the diffuse for the directional light
+    vec3 directionalDiffuse = u_DirectionalLightColor * useColor.rgb * nDotL * u_isDirectionalLighting * u_DirectionalLightBrightness;//Calculates the diffuse for the directional light
 
         //Do the calculations for the point light
     vec3 pointLightDirection = (normalize(u_PointLightPosition - v_Position));
     nDotL = max(dot(pointLightDirection, normal), 0.0);
-    vec3 pointDiffuse = u_PointLightColor.rgb * useColor.rgb * nDotL * u_PointLightBrightness;
-    vec3 ambientDiffuse = u_AmbientLightColor.rgb * useColor.rgb * 0.1;
-        //Check flags, replacing diffuse values with zero-vectors if they are not enables
-    if (!u_isDirectionalLighting){ directionalDiffuse = vec3(0,0,0); }
-    if (!u_isPointLighting){pointDiffuse = vec3(0,0,0); }
-        if (!u_isAmbientLighting){ambientDiffuse = vec3(0,0,0); }
+    vec3 pointDiffuse = u_PointLightColor.rgb * useColor.rgb * nDotL * u_PointLightBrightness *u_isPointLighting;
+    vec3 ambientDiffuse = u_AmbientLightColor.rgb * useColor.rgb * u_isAmbientLighting;
+
     gl_FragColor = vec4(directionalDiffuse + pointDiffuse + ambientDiffuse, v_Color.a);
     //gl_FragColor = vec4(u_PointLightPosition, 1.0);
 } else {gl_FragColor = useColor;}}

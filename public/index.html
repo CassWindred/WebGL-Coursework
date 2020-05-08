@@ -55,12 +55,12 @@
                 <tr>
                     <th>
             <div class="slidecontainer">
-                 <input type="range" min="0" max="100" value="10" class="custom-range"
+                 <input type="range" min="0" max="50" value="10" class="custom-range"
                                                 id="pointBrightSlider"></div>
                     </th>
                     <th>
                         <div class="slidecontainer">
-                            <input type="range" min="0" max="100" value="10" class="custom-range"
+                            <input type="range" min="0" max="50" value="10" class="custom-range"
                                    id="dirBrightSlider"></div>
                     </th>
                 </tr>
@@ -79,17 +79,21 @@
 
             <div class="card">
                 <div class="card-header">Instructions:</div>
-                <div class="card-body">
+                <div class="card-body small">
 
                     To the left is the canvas, beneath it are a series of controls that can be used to
-                    control the behaviour of the render.
+                    control the behaviour of the render. <br>
+
+                    Beneath this card are toggles for lighting types. Directional light comes in
+                    at a fixed direction, point light emits from the swinging light bulb. If both
+                    light types are turned off, lighting will be disabled and the scene will be
+                    rendered using raw color values.
                 </div>
         </div>
             <div class="card mt-2">
                 <div class="card-header">Lighting Toggles:</div>
             <button type="button" class="btn btn-outline-primary" id="toggleDirLight">Toggle Directional Lighting</button>
             <button type="button" class="btn btn-outline-primary" id="togglePointLight">Toggle Point Lighting</button>
-            <button type="button" class="btn btn-outline-primary" id="toggleAmbientLight">Toggle Ambient Lighting</button>
             </div></div>
     </div>
 

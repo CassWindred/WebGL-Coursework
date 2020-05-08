@@ -23,6 +23,7 @@ let Xinputslider;
 let Yinputslider;
 let Zinputslider;
 let pointBrightnessinputslider;
+let directionalBrightnessinputslider;
 
 
 let u_isDirectionalLighting;
@@ -47,11 +48,14 @@ let u_DirectionalLightBrightness;
 
 let pointLightPosition = new Vector3([0.6, 0.6, 0.6]);
 let pointLightColor = new Vector3([1.0, 0.5, 0.4]);
-let pointLightBrightness = 2.2;
+let pointLightBrightness = 1;
+
+let directionalLightColor = new Vector3([1.0, 0.5, 0.4]);
+let directionalLightBrightness = 1;
 
 let isPointLighting = 1;
 let isDirectionalLighting = 1;
-let isAmbientLighting = 1;
+let isAmbientLighting = 0;
 let isLighting = 1;
 
 let lightBulbRotation = 0;
@@ -59,13 +63,13 @@ let lightBulbRotationStep = 0.02;
 
 function togglePointLighting() {
     isPointLighting = !isPointLighting;
-    gl.uniform1i(u_isPointLighting, isPointLighting);
+    gl.uniform1f(u_isPointLighting, isPointLighting);
 
 }
 
 function toggleDirectionalLighting() {
     isDirectionalLighting = !isDirectionalLighting;
-    gl.uniform1i(u_isDirectionalLighting, isDirectionalLighting);
+    gl.uniform1f(u_isDirectionalLighting, isDirectionalLighting);
 }
 
 function toggleAmbientLighting() {
@@ -84,8 +88,11 @@ function updatePointLightPosition(newPosition) {
 }
 
 function updatePointBrightness() {
-    console.log(pointLightBrightness);
     gl.uniform1f(u_PointLightBrightness, pointLightBrightness);
+}
+
+function updateDirectionalBrightness() {
+    gl.uniform1f(u_DirectionalLightBrightness, directionalLightBrightness);
 }
 
 const Camera = {
@@ -125,6 +132,8 @@ let JSONObjects =
         "lightbulb.json": {},
         "cup.json": {},
         "testobj.json": {},
+        "beanbag.json": {},
+        "tv.json": {},
     };
 
 let loadedTextures = 0;
@@ -133,6 +142,7 @@ let Textures = {
     "carpet.png": {},
     "redplastic.png": {},
     "leather.png": {},
+    "checkfabric.png": {},
 };
 
 Number.prototype.map = function (in_min, in_max, out_min, out_max) { //A function to map one range to another
@@ -162,6 +172,13 @@ async function main() {
         updatePointBrightness()
     };
 
+    directionalBrightnessinputslider = document.getElementById("dirBrightSlider");
+    directionalBrightnessinputslider.oninput = () => {
+        directionalLightBrightness = directionalBrightnessinputslider.value / 10;
+        document.getElementById("dbout").innerHTML = directionalLightBrightness;
+        updateDirectionalBrightness()
+    };
+
     // Get the rendering context for WebGL
     console.log(baseurl);
     gl = getWebGLContext(canvas);
@@ -182,7 +199,6 @@ async function main() {
     getUniformLocations();
 
     gl.uniform3f(u_AmbientLightColor, 1.0, 1.0, 1.0);
-    gl.uniform1i(u_isAmbientLighting, false);
 
     // Set the light color (white)
     gl.uniform3f(u_DirectionalLightColor, 1.0, 1.0, 1.0);
@@ -270,7 +286,6 @@ async function initialiseTextures(gl, u_Sampler) {
 }
 
 function loadTexture(texture, u_Sampler) {
-    console.log("Loading Texture");
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); // Flip the image's y axis
 
     // Enable texture unit0
@@ -306,7 +321,7 @@ function getUniformLocations() {
     u_isLighting = gl.getUniformLocation(gl.program, 'u_isLighting');
     u_isPointLighting = gl.getUniformLocation(gl.program, "u_isPointLighting");
     u_isDirectionalLighting = gl.getUniformLocation(gl.program, "u_isDirectionalLighting");
-    u_isAmbientLighting = gl.getUniformLocation(gl.program, "u_isDirectionalLighting");
+    u_isAmbientLighting = gl.getUniformLocation(gl.program, "u_isAmbientLighting");
 
     u_PointLightColor = gl.getUniformLocation(gl.program, 'u_PointLightColor');
     u_PointLightPosition = gl.getUniformLocation(gl.program, 'u_PointLightPosition');
@@ -318,9 +333,11 @@ function getUniformLocations() {
         console.log('Failed to Get the storage locations of a First Stage Uniform');
         return;
     }
-    gl.uniform1i(u_isDirectionalLighting, isDirectionalLighting);
-    gl.uniform1i(u_isPointLighting, isPointLighting);
+    gl.uniform1f(u_isDirectionalLighting, isDirectionalLighting);
+    gl.uniform1f(u_isPointLighting, isPointLighting);
+    gl.uniform1f(u_isAmbientLighting, isAmbientLighting);
     gl.uniform1f(u_PointLightBrightness, pointLightBrightness);
+    gl.uniform1f(u_DirectionalLightBrightness, directionalLightBrightness);
 
     u_UseTextures = gl.getUniformLocation(gl.program, "u_UseTextures");
     if (!u_UseTextures) {
@@ -410,7 +427,11 @@ function initMeshVertexBuffers(mesh, color = [0,0,1]) {
     let vertices = new Float32Array(mesh.vertices);
     let normals = new Float32Array(mesh.normals);
     let texCoords = new Float32Array(mesh.texturecoords[0]);
-    let indices = new Uint8Array(flatten(mesh.faces));
+    let indicearray = [];
+    mesh.faces.forEach((face) => {
+        indicearray = indicearray.concat(face)});
+    //let indices = new Uint8Array(flatten(mesh.faces));
+    let indices = new Uint8Array(indicearray);
     let colors = [];
     for (let i = 0; i < vertices.length / 3; i++) {
         colors = colors.concat(color)
@@ -658,11 +679,19 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_Sampler, elapsedtime) {
     cupMat.translate(3.1, 0.4, -1.4);
     cupMat.scale(0.2, 0.2, 0.2);
     loadTexture(Textures["leather.png"], u_Sampler);
-    let sofaMat = new Matrix4(modelMatrix).translate(0, -3.6, -6);
+    let sofaMat = new Matrix4(modelMatrix);
+        sofaMat.translate(0, -3.6, -6);
     drawSofa(gl, u_ModelMatrix,u_NormalMatrix,n, sofaMat);
 
+    loadTexture(Textures["checkfabric.png"]);
+    let beanbagMat = new Matrix4(modelMatrix).translate(sliderX, sliderY, sliderZ);
+        beanbagMat.scale(6,6,6)
+        .rotate(200,0,1,0)
+        .translate(-8, -6.4, 2.4);
+    drawJSONObject("beanbag.json", u_ModelMatrix,u_NormalMatrix, beanbagMat, [1,1,1]);
 
-
+    gl.uniform1i(u_UseTextures, false); //Turn off Texture as TV is just black
+    gl.uniform1i(u_UseTextures, true); //Turn textures back on
 
     // Draw JSON Mesh objects (THIS MUST BE DONE AFTER CUBE MESH DRAWING
     loadTexture(Textures["redplastic.png"]);
@@ -670,6 +699,7 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_Sampler, elapsedtime) {
 
     //Turn off lighting for bulb draw (point light is in bulb which makes the bulb receive no light)
     gl.uniform1i(u_isLighting, false);
+    gl.uniform1i(u_UseTextures, false); //Turn off Texture as Bulb is Block color
     //Draw Lightbulb
 
     let lightbulbMat = new Matrix4(modelMatrix);
@@ -688,7 +718,7 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_Sampler, elapsedtime) {
     updatePointLightPosition(bulbPositionVector);
 
     drawJSONObject("lightbulb.json", u_ModelMatrix, u_NormalMatrix, lightbulbMat, [0.7, 0.6, 0.3]);
-    gl.uniform1i(u_isLighting, true); //Point lighting reset to current value
+    gl.uniform1i(u_isLighting, true); //lighting reset to current value
 
 }
 
