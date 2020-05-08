@@ -24,13 +24,17 @@ let Yinputslider;
 let Zinputslider;
 let pointBrightnessinputslider;
 let directionalBrightnessinputslider;
+let sliderValX;
+let sliderValY;
+let sliderValZ;
+
+
 
 
 let u_isDirectionalLighting;
 let u_isPointLighting;
 let u_isAmbientLighting;
 let u_UseTextures;
-
 
 
 let u_ModelMatrix;
@@ -57,9 +61,13 @@ let isPointLighting = 1;
 let isDirectionalLighting = 1;
 let isAmbientLighting = 0;
 let isLighting = 1;
+let useTextures = 1;
 
 let lightBulbRotation = 0;
 let lightBulbRotationStep = 0.02;
+let fanStandStage = 0;
+let fanBladesStage = 0;
+let fanSpeed = 1;
 
 function togglePointLighting() {
     isPointLighting = !isPointLighting;
@@ -134,6 +142,7 @@ let JSONObjects =
         "testobj.json": {},
         "beanbag.json": {},
         "tv.json": {},
+        "fanblades.json": {},
     };
 
 let loadedTextures = 0;
@@ -141,9 +150,11 @@ let Textures = {
     "wood.png": {},
     "carpet.png": {},
     "redplastic.png": {},
+    "scratchedplastic.png": {},
     "leather.png": {},
     "checkfabric.png": {},
 };
+
 
 Number.prototype.map = function (in_min, in_max, out_min, out_max) { //A function to map one range to another
     return (this - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
@@ -272,35 +283,46 @@ async function initialiseTextures(gl, u_Sampler) {
                 reject();
             }
 
+
             // Tell the browser to load an image
             // Register the event handler to be called on loading an image
+            let textureUnits = [gl.TEXTURE0, gl.TEXTURE1, gl.TEXTURE2, gl.TEXTURE3, gl.TEXTURE4,
+                gl.TEXTURE5, gl.TEXTURE6, gl.TEXTURE7];
             Textures[tex].image.onload = () => { //Resolves only when all textures are loaded
+                Textures[tex].textureUnit = textureUnits.pop();
+                Textures[tex].textureNum = textureUnits.length;
+                initialiseTexture(Textures[tex]);
                 loadedTextures++;
                 if (loadedTextures >= Object.keys(Textures).length) {
-                   resolve();
-                }};
+                    resolve();
+                }
+            };
             Textures[tex].image.src = '../img/' + tex;
 
         }
     }))
 }
 
-function loadTexture(texture, u_Sampler) {
+function initialiseTexture(texture) {
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); // Flip the image's y axis
 
     // Enable texture unit0
-    gl.activeTexture(gl.TEXTURE0);
+    gl.activeTexture(texture.textureUnit);
 
     // Bind the texture object to the target
     gl.bindTexture(gl.TEXTURE_2D, texture);
-
     // Set the texture image
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+}
 
+function loadTexture(texture, u_Sampler) {
+    gl.activeTexture(texture.textureUnit);
 
-    // Assign u_Sampler to TEXTURE0
-    gl.uniform1i(u_Sampler, 0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    // Assign u_Sampler to Correct texture
+    gl.uniform1i(u_Sampler, texture.textureNum);
 }
 
 function getUniformLocations() {
@@ -417,7 +439,7 @@ function keydown(ev, u_ModelMatrix, u_NormalMatrix, u_isLighting) {
     }
 }
 
-function initMeshVertexBuffers(mesh, color = [0,0,1]) {
+function initMeshVertexBuffers(mesh, color = [0, 0, 1]) {
     function flatten(arr) { //Flattens arrays, used to flatten the faces array
         return arr.reduce(function (flat, toFlatten) {
             return flat.concat(Array.isArray(toFlatten) ? flatten(toFlatten) : toFlatten);
@@ -429,7 +451,8 @@ function initMeshVertexBuffers(mesh, color = [0,0,1]) {
     let texCoords = new Float32Array(mesh.texturecoords[0]);
     let indicearray = [];
     mesh.faces.forEach((face) => {
-        indicearray = indicearray.concat(face)});
+        indicearray = indicearray.concat(face)
+    });
     //let indices = new Uint8Array(flatten(mesh.faces));
     let indices = new Uint8Array(indicearray);
     let colors = [];
@@ -457,7 +480,7 @@ function initMeshVertexBuffers(mesh, color = [0,0,1]) {
     return indices.length;
 }
 
-function initCubeVertexBuffers(gl) {
+function initCubeVertexBuffers(gl, color = [1,0,0]) {
     // Create a cube
     //    v6----- v5
     //   /|      /|
@@ -485,16 +508,13 @@ function initCubeVertexBuffers(gl) {
         -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, -0.5, 0.5, -0.5, -0.5, 0.5, // v7-v4-v3-v2 down
         0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5  // v4-v7-v6-v5 back
     ]);
+    let colorArray = [];
+    for (let i = 0; i < 24; i++) {
+        colorArray = colorArray.concat(color)
 
+    }
+    let colors = new Float32Array(colorArray);
 
-    let colors = new Float32Array([    // Colors
-        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,     // v0-v1-v2-v3 front
-        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,     // v0-v3-v4-v5 right
-        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,     // v0-v5-v6-v1 up
-        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,     // v1-v6-v7-v2 left
-        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,     // v7-v4-v3-v2 down
-        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0　    // v4-v7-v6-v5 back
-    ]);
 
 
     let normals = new Float32Array([    // Normal
@@ -613,10 +633,11 @@ function initAxesVertexBuffers(gl) {
 
 
 function draw(gl, u_ModelMatrix, u_NormalMatrix, u_Sampler, elapsedtime) {
-    let sliderX = parseInt(Xinputslider.value) / 10;
-    let sliderY = parseInt(Yinputslider.value) / 10;
-    let sliderZ = parseInt(Zinputslider.value) / 10;
-    let sliderVector = new Vector3([sliderX, sliderY, sliderZ]);
+    let selectedObject = "";
+    sliderValX = parseInt(Xinputslider.value) / 10;
+    sliderValY = parseInt(Yinputslider.value) / 10;
+    sliderValZ = parseInt(Zinputslider.value) / 10;
+    //let sliderVector = new Vector3([sliderX, sliderY, sliderZ]);
     //updatePointLightPosition(sliderVector);
     // Clear color and depth buffer
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -657,21 +678,24 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_Sampler, elapsedtime) {
     //Draw Cube Mesh Objects
     //Draw Floor
     loadTexture(Textures["carpet.png"], u_Sampler);
-    let floorMat = new Matrix4(modelMatrix).translate(0, -5, 0).scale(50, 0.01, 50);
+    let floorMat = new Matrix4(modelMatrix).translate(0, -5, 0).scale(30, 0.01, 30);
     drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, floorMat);
 
     loadTexture(Textures["wood.png"], u_Sampler);
     let chair1Mat = new Matrix4(modelMatrix);
+    if (selectedObject === "Chair 1") {chair1Mat.translate(sliderValX, sliderValY, sliderValZ)}
     chair1Mat.translate(-7, -2.6, -6);
     drawchair(gl, u_ModelMatrix, u_NormalMatrix, n, chair1Mat);
 
     let chair2Mat = new Matrix4(modelMatrix);
+    if (selectedObject === "Chair 2") {chair2Mat.translate(sliderValX, sliderValY, sliderValZ)}
     chair2Mat.translate(7, -3, -3).rotate(-50, 0, 1, 0);
     drawchair(gl, u_ModelMatrix, u_NormalMatrix, n, chair2Mat);
 
 
     //Draw Coffee Table
     let coffeeTableMat = new Matrix4(modelMatrix);
+    if (selectedObject === "Coffee Table") {coffeeTableMat.translate(sliderValX, sliderValY, sliderValZ)}
     coffeeTableMat.translate(0, -3.6, 0);
     let cupMat = new Matrix4(coffeeTableMat); //Prepare cupMatrix as child of table matrix
     drawcoffeetable(gl, u_ModelMatrix, u_NormalMatrix, n, coffeeTableMat);
@@ -680,22 +704,38 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_Sampler, elapsedtime) {
     cupMat.scale(0.2, 0.2, 0.2);
     loadTexture(Textures["leather.png"], u_Sampler);
     let sofaMat = new Matrix4(modelMatrix);
-        sofaMat.translate(0, -3.6, -6);
-    drawSofa(gl, u_ModelMatrix,u_NormalMatrix,n, sofaMat);
+    sofaMat.translate(0, -3.6, -6);
+    drawSofa(gl, u_ModelMatrix, u_NormalMatrix, n, sofaMat);
 
-    loadTexture(Textures["checkfabric.png"]);
-    let beanbagMat = new Matrix4(modelMatrix).translate(sliderX, sliderY, sliderZ);
-        beanbagMat.scale(6,6,6)
-        .rotate(200,0,1,0)
-        .translate(-8, -6.4, 2.4);
-    drawJSONObject("beanbag.json", u_ModelMatrix,u_NormalMatrix, beanbagMat, [1,1,1]);
 
-    gl.uniform1i(u_UseTextures, false); //Turn off Texture as TV is just black
-    gl.uniform1i(u_UseTextures, true); //Turn textures back on
+
+    let tvMat = new Matrix4(modelMatrix);
+    if (selectedObject === "TV") {tvMat.translate(sliderValX, sliderValY, sliderValZ)}
+    tvMat.translate(0, -0.3, 10.7);
+    let tvCupMat = new Matrix4(tvMat)
+        .translate(-1.8, -1.3, -0.8)
+        .rotate(180,0,1,0)
+        .scale(0.2,0.2,0.2);
+    drawTV(gl, u_ModelMatrix, u_NormalMatrix, n, tvMat);
+
+    let fanMat = new Matrix4(modelMatrix);
+    if (selectedObject === "Fan") {fanMat.translate(sliderValX, sliderValY, sliderValZ)}
+    fanMat.scale(5,5,5);
+    drawFan(gl, u_ModelMatrix,u_NormalMatrix,n ,fanMat, elapsedtime);
+
 
     // Draw JSON Mesh objects (THIS MUST BE DONE AFTER CUBE MESH DRAWING
+    loadTexture(Textures["checkfabric.png"]);
+    let beanbagMat = new Matrix4(modelMatrix).translate(0, 0, 0);
+    beanbagMat.translate(-8, -6.4, 2.4)
+        .scale(6, 6, 6)
+        .rotate(200, 0, 1, 0);
+
+    drawJSONObject("beanbag.json", u_ModelMatrix, u_NormalMatrix, beanbagMat, [1, 1, 1]);
+
     loadTexture(Textures["redplastic.png"]);
     drawJSONObject("cup.json", u_ModelMatrix, u_NormalMatrix, cupMat);
+    drawJSONObject("cup.json", u_ModelMatrix, u_NormalMatrix, tvCupMat);
 
     //Turn off lighting for bulb draw (point light is in bulb which makes the bulb receive no light)
     gl.uniform1i(u_isLighting, false);
@@ -705,7 +745,7 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_Sampler, elapsedtime) {
     let lightbulbMat = new Matrix4(modelMatrix);
 
     lightbulbMat.scale(0.3, 0.3, 0.3);
-    lightBulbRotation += lightBulbRotationStep * elapsedtime/10;
+    lightBulbRotation += lightBulbRotationStep * elapsedtime / 10;
     lightBulbRotation = lightBulbRotation % 360;
     let rotationValue = Math.sin(lightBulbRotation).map(-1, 1, -30, 30);
     lightbulbMat.translate(0, 32, 0);
@@ -791,6 +831,23 @@ function drawcoffeetable(gl, u_ModelMatrix, u_NormalMatrix, n, modMatrix) {
     drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, legDMat);
 }
 
+function drawTV(gl, u_ModelMatrix, u_NormalMatrix, n, modMatrix) {
+    //Draw Draw table surface
+    loadTexture(Textures["wood.png"]);
+    let boxStandMat = new Matrix4(modMatrix).translate(0,-3, 0).scale(5, 3, 3);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, boxStandMat);
+
+    gl.uniform1i(u_UseTextures, false); //Turn off Texture as TV is just black
+    //Draw sphere that makes up the bottom of the tv stand
+    let sphereStandMat = new Matrix4(modMatrix).translate(0, -1.6, 0);
+    drawJSONObject("sphere.json", u_ModelMatrix, u_NormalMatrix, sphereStandMat, [0,0,0]);
+    initCubeVertexBuffers(gl, [0,0,0]); //Cube buffers must be reloaded to replace the JSON object buffers
+
+    let tvScreenMat = new Matrix4(modMatrix).translate(0, 1.5, 0).scale(8, 5, 0.3);
+    drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, tvScreenMat);
+    gl.uniform1i(u_UseTextures, useTextures); //Turn textures back to user setting
+}
+
 function drawSofa(gl, u_ModelMatrix, u_NormalMatrix, n, modMatrix) {
 
     //Draw Draw table surface
@@ -816,9 +873,9 @@ function drawSofa(gl, u_ModelMatrix, u_NormalMatrix, n, modMatrix) {
     drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, legDMat);
 
     //Draw Arms
-    let armMat = new Matrix4(modMatrix).scale(1,2.5, 4);
-    let armLeftMat = new Matrix4(armMat).translate(5,0.5, 0);
-    let armRightMat = new Matrix4(armMat).translate(-5,0.5, 0);
+    let armMat = new Matrix4(modMatrix).scale(1, 2.5, 4);
+    let armLeftMat = new Matrix4(armMat).translate(5, 0.5, 0);
+    let armRightMat = new Matrix4(armMat).translate(-5, 0.5, 0);
     drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, armLeftMat);
     drawbox(gl, u_ModelMatrix, u_NormalMatrix, n, armRightMat);
 
@@ -841,8 +898,29 @@ function drawSofa(gl, u_ModelMatrix, u_NormalMatrix, n, modMatrix) {
 
 }
 
+function drawFan(gl, u_ModelMatrix, u_NormalMatrix, n, modMatrix, elapsed) {
+    initCubeVertexBuffers(gl, [0,0,0]); //Cube buffers must be reloaded to replace the JSON object buffers
 
-function drawJSONObject(objectName, u_ModelMatrix, u_NormalMatrix, modMatrix, color = [0,1,0]) {
+    loadTexture(Textures["scratchedplastic.png"]);
+    let baseMat = new Matrix4(modMatrix).scale(1, 0.5, 1);
+    drawbox(gl, u_ModelMatrix,u_NormalMatrix,n,baseMat);
+
+    let standMat = new Matrix4(modMatrix);
+    let standRotate;
+    if (fanStandStage < 100) {
+        standMat.rotate(fanStandStage.map(0, 100,-15, 15), 0, 1, 0)
+    } else if (fanStandStage < 200) {
+        standMat.rotate((fanStandStage - 100).map(0, 100, 15, -15), 0, 1, 0)
+    }
+
+    drawbox(gl, u_ModelMatrix,u_NormalMatrix,n,standMat);
+
+    fanStandStage = (fanStandStage + fanSpeed * elapsed/20)%200;
+
+}
+
+
+function drawJSONObject(objectName, u_ModelMatrix, u_NormalMatrix, modMatrix, color = [0, 1, 0]) {
     JSONObjects[objectName].meshes.forEach((mesh, index) => {
         let n = initMeshVertexBuffers(mesh, color);
         // Pass the model matrix to the uniform letiable

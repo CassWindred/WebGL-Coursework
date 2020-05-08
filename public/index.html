@@ -19,31 +19,36 @@
             <canvas id="webgl" width="600" height="400">
                 Please use a browser that supports "canvas"
             </canvas> </div></div>
-            <div class="card">
-            <table class="table">
-                <tr class="text-center">
-                    <th>X Transform: <span id="xout">0</span></th>
-                    <th>Y Transform: <span id="yout">0</span></th>
-                    <th>Z Transform: <span id="zout">0</span></th>
-                </tr>
-                <tr>
-                    <th>
+            <div class="card p-1">
+            <div class="row"> <div class="col-4">
+            <select class="custom-select" id="objectSelect">
+                <option selected>Choose Object</option>
+                <option value="Chair 1">Chair 1</option>
+                <option value="Chair 2">Chair 2</option>
+                <option value="Coffee Table">Coffee Table</option>
+                <option value="Sofa">Sofa</option>
+                <option value="Beanbag">Beanbag</option>
+                <option value="TV">TV</option>
+                <option value="Swinging Light">Swinging Light</option>
+            </select></div>
+                <h6 class="col-lg-8 pt-2 align-middle">Select an object, then translate it using the sliders.</h6>
+
+
+            </div>
+                  <div class="row">  <div class="col"> X: <span id="xout">0</span>
         <span class="slidecontainer p-0">
     <input type="range" class="custom-range" min="-100" max="100" value="0" id="inputSliderX">
-</span>
-                    </th>
-                    <th>
-        <span class="slidecontainer p-0">
+        </span> </div>
+        <div class="col">Y: <span id="yout">0</span>
+            <span class="slidecontainer p-0">
     <input type="range" class="custom-range" min="-100" max="100" value="0" id="inputSliderY">
-</span>
-                    </th>
-                    <th>
-        <span class="slidecontainer p-0">
+        </span></div>
+<div class="col">Z: <span id="zout">0</span>
+    <span class="slidecontainer p-0">
     <input type="range" class="custom-range" min="-100" max="100" value="0" id="inputSliderZ">
-</span>
-                    </th>
+        </span></div>
 
-            </table>
+                  </div>
 
             <table class="table">
                 <tr>
@@ -84,7 +89,9 @@
                     To the left is the canvas, beneath it are a series of controls that can be used to
                     control the behaviour of the render. <br>
 
-                    Beneath this card are toggles for lighting types. Directional light comes in
+                    Use WASD to rotate the scene.
+
+                    Beneath this section are toggles for lighting types. Directional light comes in
                     at a fixed direction, point light emits from the swinging light bulb. If both
                     light types are turned off, lighting will be disabled and the scene will be
                     rendered using raw color values.
