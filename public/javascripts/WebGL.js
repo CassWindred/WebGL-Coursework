@@ -152,9 +152,7 @@ let JSONObjects =
         "sphere.json": {},
         "lightbulb.json": {},
         "cup.json": {},
-        "testobj.json": {},
         "beanbag.json": {},
-        "tv.json": {},
         "fanblades.json": {},
         "fanbladescore.json": {},
     };
