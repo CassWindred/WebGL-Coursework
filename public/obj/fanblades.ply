@@ -1,6 +1,6 @@
 ply
 format ascii 1.0
-comment Created by Blender 2.81 (sub 16) - www.blender.org, source file: ''
+comment Created by Blender 2.81 (sub 16) - www.blender.org, source file: 'fan.blend'
 element vertex 336
 property float x
 property float y

@@ -30,6 +30,7 @@
                 <option value="Sofa">Sofa</option>
                 <option value="Beanbag">Beanbag</option>
                 <option value="TV">TV</option>
+                <option value="Fan">Fan</option>
                 <option value="Swinging Light">Swinging Light</option>
             </select></div>
                 <h6 class="col-lg-8 pt-2 align-middle">Select an object, then translate it using the sliders.</h6>
@@ -99,10 +100,16 @@
                 </div>
         </div>
             <div class="card mt-2">
-                <div class="card-header">Lighting Toggles:</div>
+                <div class="card-header">Render Toggles:</div>
             <button type="button" class="btn btn-outline-primary" id="toggleDirLight">Toggle Directional Lighting</button>
             <button type="button" class="btn btn-outline-primary" id="togglePointLight">Toggle Point Lighting</button>
-            </div></div>
+                <button type="button" class="btn btn-outline-primary" onclick="toggleTextures()" id="toggleTextures">Toggle Textures</button>
+            </div>
+            <div class="card mt-2">
+                <div class="card-header">Animation Trigger:</div>
+                <button type="button" class="btn btn-outline-primary" onclick="pushSofa()" id="pushSofaBtn">Push Sofa</button>
+            </div>
+        </div>
     </div>
 
 

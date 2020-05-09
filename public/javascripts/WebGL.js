@@ -19,11 +19,13 @@ let g_yAngle = 0.0;    // The rotation y angle (degrees)
 let ZOOM_STEP = 0.5;
 let g_zoom = 0.0;
 
+let objectSelect;
 let Xinputslider;
 let Yinputslider;
 let Zinputslider;
 let pointBrightnessinputslider;
 let directionalBrightnessinputslider;
+let selectedObject = "";
 let sliderValX;
 let sliderValY;
 let sliderValZ;
@@ -68,6 +70,12 @@ let lightBulbRotationStep = 0.02;
 let fanStandStage = 0;
 let fanBladesStage = 0;
 let fanSpeed = 1;
+let sofaPushing = false;
+let sofaPushStage = 0;
+
+function pushSofa() {
+    sofaPushing = true;
+}
 
 function togglePointLighting() {
     isPointLighting = !isPointLighting;
@@ -78,6 +86,11 @@ function togglePointLighting() {
 function toggleDirectionalLighting() {
     isDirectionalLighting = !isDirectionalLighting;
     gl.uniform1f(u_isDirectionalLighting, isDirectionalLighting);
+}
+
+function toggleTextures() {
+    useTextures = !useTextures;
+    gl.uniform1i(u_UseTextures, useTextures);
 }
 
 function toggleAmbientLighting() {
@@ -143,6 +156,7 @@ let JSONObjects =
         "beanbag.json": {},
         "tv.json": {},
         "fanblades.json": {},
+        "fanbladescore.json": {},
     };
 
 let loadedTextures = 0;
@@ -153,6 +167,7 @@ let Textures = {
     "scratchedplastic.png": {},
     "leather.png": {},
     "checkfabric.png": {},
+    "lightbulb.png": {}
 };
 
 
@@ -163,6 +178,13 @@ Number.prototype.map = function (in_min, in_max, out_min, out_max) { //A functio
 async function main() {
     // Retrieve <canvas> element
     let canvas = document.getElementById('webgl');
+
+
+    objectSelect = document.getElementById("objectSelect");
+    objectSelect.onchange = () => {
+      selectedObject = objectSelect.value;
+    };
+
     Xinputslider = document.getElementById("inputSliderX");
     Xinputslider.oninput = () => {
         document.getElementById("xout").innerHTML = Xinputslider.value / 10;
@@ -243,7 +265,7 @@ async function main() {
     await initialiseTextures(gl);
     console.log("Textures Downloaded");
     loadTexture(Textures["wood.png"], u_Sampler);
-
+    gl.uniform1i(u_UseTextures, true);
 
     loadJSONObjects();
 
@@ -633,7 +655,6 @@ function initAxesVertexBuffers(gl) {
 
 
 function draw(gl, u_ModelMatrix, u_NormalMatrix, u_Sampler, elapsedtime) {
-    let selectedObject = "";
     sliderValX = parseInt(Xinputslider.value) / 10;
     sliderValY = parseInt(Yinputslider.value) / 10;
     sliderValZ = parseInt(Zinputslider.value) / 10;
@@ -643,7 +664,7 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_Sampler, elapsedtime) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     gl.uniform1i(u_isLighting, false); // Will not apply lighting
-    gl.uniform1i(u_UseTextures, true);
+
 
     // Set the vertex coordinates and color (for the x, y axes)
 
@@ -702,8 +723,25 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_Sampler, elapsedtime) {
     //Draw
     cupMat.translate(3.1, 0.4, -1.4);
     cupMat.scale(0.2, 0.2, 0.2);
+
     loadTexture(Textures["leather.png"], u_Sampler);
     let sofaMat = new Matrix4(modelMatrix);
+
+        if (sofaPushStage<=100){
+            sofaMat.translate(0,0,-(sofaPushStage/20));
+            if (sofaPushing) {sofaPushStage += elapsedtime/10}
+            if (sofaPushStage>100) {sofaPushing=false}
+
+        }
+        else if (sofaPushStage>100) {
+            sofaMat.translate(0,0, -10+((sofaPushStage/20)));
+            if (sofaPushing) {sofaPushStage += elapsedtime/10}
+            if (sofaPushStage>200) {sofaPushStage=0;sofaPushing=false}
+        }
+
+
+
+    if (selectedObject === "Sofa") {sofaMat.translate(sliderValX, sliderValY, sliderValZ)}
     sofaMat.translate(0, -3.6, -6);
     drawSofa(gl, u_ModelMatrix, u_NormalMatrix, n, sofaMat);
 
@@ -720,13 +758,14 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_Sampler, elapsedtime) {
 
     let fanMat = new Matrix4(modelMatrix);
     if (selectedObject === "Fan") {fanMat.translate(sliderValX, sliderValY, sliderValZ)}
-    fanMat.scale(5,5,5);
+    fanMat.translate(6.8,-4.5,8.2).rotate(210, 0,1,0);
     drawFan(gl, u_ModelMatrix,u_NormalMatrix,n ,fanMat, elapsedtime);
 
 
     // Draw JSON Mesh objects (THIS MUST BE DONE AFTER CUBE MESH DRAWING
     loadTexture(Textures["checkfabric.png"]);
-    let beanbagMat = new Matrix4(modelMatrix).translate(0, 0, 0);
+    let beanbagMat = new Matrix4(modelMatrix);
+    if (selectedObject === "Beanbag") {beanbagMat.translate(sliderValX, sliderValY, sliderValZ)}
     beanbagMat.translate(-8, -6.4, 2.4)
         .scale(6, 6, 6)
         .rotate(200, 0, 1, 0);
@@ -737,12 +776,11 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_Sampler, elapsedtime) {
     drawJSONObject("cup.json", u_ModelMatrix, u_NormalMatrix, cupMat);
     drawJSONObject("cup.json", u_ModelMatrix, u_NormalMatrix, tvCupMat);
 
-    //Turn off lighting for bulb draw (point light is in bulb which makes the bulb receive no light)
-    gl.uniform1i(u_isLighting, false);
-    gl.uniform1i(u_UseTextures, false); //Turn off Texture as Bulb is Block color
-    //Draw Lightbulb
+    //Turn on ambient lighting for bulb draw (point light is in bulb which makes the bulb receive no light)
+    gl.uniform1f(u_isAmbientLighting, 0.5);
 
     let lightbulbMat = new Matrix4(modelMatrix);
+    if (selectedObject === "Swinging Light") {lightbulbMat.translate(sliderValX, sliderValY, sliderValZ)}
 
     lightbulbMat.scale(0.3, 0.3, 0.3);
     lightBulbRotation += lightBulbRotationStep * elapsedtime / 10;
@@ -756,9 +794,9 @@ function draw(gl, u_ModelMatrix, u_NormalMatrix, u_Sampler, elapsedtime) {
     let bulbPositionVector = new Vector3([lightPointMat.elements[12], lightPointMat.elements[13], lightPointMat.elements[14]]);
 
     updatePointLightPosition(bulbPositionVector);
-
+    loadTexture(Textures["lightbulb.png"]);
     drawJSONObject("lightbulb.json", u_ModelMatrix, u_NormalMatrix, lightbulbMat, [0.7, 0.6, 0.3]);
-    gl.uniform1i(u_isLighting, true); //lighting reset to current value
+    gl.uniform1f(u_isAmbientLighting, 0); //lighting reset to current value
 
 }
 
@@ -902,20 +940,32 @@ function drawFan(gl, u_ModelMatrix, u_NormalMatrix, n, modMatrix, elapsed) {
     initCubeVertexBuffers(gl, [0,0,0]); //Cube buffers must be reloaded to replace the JSON object buffers
 
     loadTexture(Textures["scratchedplastic.png"]);
-    let baseMat = new Matrix4(modMatrix).scale(1, 0.5, 1);
+    let baseMat = new Matrix4(modMatrix).scale(3.5, 1, 3.5);
     drawbox(gl, u_ModelMatrix,u_NormalMatrix,n,baseMat);
 
-    let standMat = new Matrix4(modMatrix);
-    let standRotate;
+    let standMat = new Matrix4(modMatrix).translate(0,2.5,-0.5);
+
+
+
     if (fanStandStage < 100) {
-        standMat.rotate(fanStandStage.map(0, 100,-15, 15), 0, 1, 0)
+        standMat.rotate(fanStandStage.map(0, 100,-30, 30), 0, 1, 0)
     } else if (fanStandStage < 200) {
-        standMat.rotate((fanStandStage - 100).map(0, 100, 15, -15), 0, 1, 0)
+        standMat.rotate((fanStandStage - 100).map(0, 100, 30, -30), 0, 1, 0)
     }
+    let bladesMat = new Matrix4(standMat);
+    standMat.scale(1,6,1);
 
     drawbox(gl, u_ModelMatrix,u_NormalMatrix,n,standMat);
 
-    fanStandStage = (fanStandStage + fanSpeed * elapsed/20)%200;
+    fanStandStage = (fanStandStage + fanSpeed * elapsed/30)%200;
+
+
+    bladesMat.translate(0,2.3,1).scale(1,1,1);
+    bladesMat.rotate(fanBladesStage, 0,0, 1);
+    fanBladesStage = (fanBladesStage + fanSpeed * elapsed/3)%360;
+    drawJSONObject("fanbladescore.json", u_ModelMatrix,u_NormalMatrix,bladesMat);
+    drawJSONObject("fanblades.json", u_ModelMatrix,u_NormalMatrix,bladesMat);
+
 
 }
 
